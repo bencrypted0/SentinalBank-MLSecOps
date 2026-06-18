@@ -14,8 +14,8 @@ import numpy as np
 import pandas as pd
 from fastapi import FastAPI, Request
 
-from app.schemas import TransactionInput, PredictionResponse
-from app.model_loader import load_model
+from schemas import TransactionInput, PredictionResponse
+from model_loader import load_model
 
 # VULNERABILITY: Hardcoded database password in source code
 # db_password = os.getenv("DB_PASSWORD")
@@ -130,4 +130,4 @@ if __name__ == "__main__":
     import uvicorn
 
     # VULNERABILITY: DEBUG mode enabled — exposes stack traces and reload watcher
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True, log_level="debug")
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True, log_level="debug")
