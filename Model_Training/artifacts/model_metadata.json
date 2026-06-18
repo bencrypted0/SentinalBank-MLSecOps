@@ -1,0 +1,34 @@
+{
+  "training_date": "2026-06-18T06:07:58.579169Z",
+  "dataset_row_count": 50000,
+  "feature_names": [
+    "step",
+    "amount",
+    "oldbalanceOrg",
+    "newbalanceOrig",
+    "oldbalanceDest",
+    "newbalanceDest",
+    "type_CASH_IN",
+    "type_CASH_OUT",
+    "type_DEBIT",
+    "type_PAYMENT",
+    "type_TRANSFER",
+    "errorBalanceOrig",
+    "errorBalanceDest"
+  ],
+  "metrics": {
+    "accuracy": 0.9997,
+    "precision": 1.0,
+    "recall": 0.7857142857142857,
+    "f1": 0.88,
+    "roc_auc": 0.9999928471288375
+  },
+  "model_parameters": {
+    "n_estimators": 100,
+    "max_depth": 10,
+    "random_state": 42,
+    "class_weight": "balanced"
+  },
+  "python_version": "3.11.15 (main, Jun 11 2026, 05:00:56) [GCC 14.2.0]",
+  "scikit_learn_version": "1.3.2"
+}
