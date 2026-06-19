@@ -17,7 +17,7 @@ from fastapi import FastAPI, Request
 from schemas import TransactionInput, PredictionResponse
 from model_loader import load_model
 
-# VULNERABILITY: Hardcoded database password in source code
+# Database credentials loaded from environment
 db_password = os.getenv("DB_PASSWORD")
 db_connection_string = os.getenv("DATABASE_URL")
 
