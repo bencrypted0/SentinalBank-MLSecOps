@@ -1,11 +1,12 @@
 pipeline {
-    agent any
+    agent none
     environment {
         REGISTRY = "my-docker-registry" 
     }
 
     stages {
-        stage('Checkout') {             // Pulls the image from the repository
+        stage('Checkout') {
+            agent { label 'ec2-agent' }
             steps {
                 checkout scm
             }
@@ -16,7 +17,7 @@ pipeline {
                     image 'ghcr.io/pycqa/bandit/bandit:latest'
                     label 'ec2-agent'
                     args '-v ${WORKSPACE}:/src -w /src'
-                    reuseNode true
+
                 }
             }
             steps {
@@ -28,21 +29,24 @@ pipeline {
                 }
             }
         }
-        stage('Secrets - Gitleaks') { steps { echo 'Secrets - Gitleaks' } }
-        stage('SCA')                { steps { echo 'SCA' } }
-        stage('Build Image')        { steps { echo 'Build Image' } }
-        stage('Container Scan')     { steps { echo 'Container Scan' } }
-        stage('IaC Scan')           { steps { echo 'IaC Scan' } }
-        stage('Model Scan')         { steps { echo 'Model Scan' } }
+        stage('Secrets - Gitleaks') { agent { label 'ec2-agent' } steps { echo 'Secrets - Gitleaks' } }
+        stage('SCA')                { agent { label 'ec2-agent' } steps { echo 'SCA' } }
+        stage('Build Image')        { agent { label 'ec2-agent' } steps { echo 'Build Image' } }
+        stage('Container Scan')     { agent { label 'ec2-agent' } steps { echo 'Container Scan' } }
+        stage('IaC Scan')           { agent { label 'ec2-agent' } steps { echo 'IaC Scan' } }
+        stage('Model Scan')         { agent { label 'ec2-agent' } steps { echo 'Model Scan' } }
         stage('Sign Image') {
+            agent { label 'ec2-agent' }
             when { branch 'main' }
             steps { echo 'Sign Image' }
         }
         stage('Push Image') {
+            agent { label 'ec2-agent' }
             when { branch 'main' }
             steps { echo 'Push Image' }
         }
         stage('Update Manifest') {
+            agent { label 'ec2-agent' }
             when { branch 'main' }
             steps { echo 'Update Manifest' }
         }
