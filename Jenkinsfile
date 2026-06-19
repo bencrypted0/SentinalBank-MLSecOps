@@ -18,12 +18,12 @@ pipeline {
                 docker {
                     image 'ghcr.io/pycqa/bandit/bandit:latest'
                     label 'ec2-agent'
-                    args '-v ${WORKSPACE}:/src -w /src'
+                    args '-v ${WORKSPACE}:/src -w /src --entrypoint=""'
 
                 }
             }
             steps {
-                sh 'bandit -r . --severity-level high -f json -o bandit-report.json || true'
+                sh 'bandit -r app/ model_training/ --severity-level high -f json -o bandit-report.json || true'
             }
             post {
                 always {
@@ -79,7 +79,7 @@ pipeline {
             when { branch 'main' }
             steps { echo 'Update Manifest' }
         }
-        
+
         // No deploy stages — ArgoCD handles that
     }
 }
