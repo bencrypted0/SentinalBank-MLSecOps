@@ -30,22 +30,12 @@ MODEL_VERSION = "1.0.0"
 async def lifespan(app: FastAPI):
     """Load model once at startup; store in app.state."""
     model_path = os.getenv("MODEL_PATH", "../model_training/artifacts/model.pkl")
-    app.state.model = load_model(model_path)
-
-    # Try to load metadata (non-fatal if missing)
-    metadata_path = os.path.join(
-        os.path.dirname(os.path.abspath(model_path)),
-        "model_metadata.json",
-    )
-    try:
-        with open(metadata_path, "r") as f:
-            app.state.model_metadata = json.load(f)
-    except FileNotFoundError:
-        app.state.model_metadata = {"error": "model_metadata.json not found"}
+    app.state.model, app.state.model_metadata = load_model(model_path)
 
     yield  # app is running
 
     # Cleanup (nothing needed)
+
 
 
 # ──────────────────────────── App ──────────────────────────────────────

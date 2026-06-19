@@ -41,9 +41,15 @@ SAMPLE_SIZE = 50_000
 TEST_SIZE = 0.20
 RANDOM_STATE = 42
 
-MLFLOW_TRACKING_URI = "http://localhost:5000"
+MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5000")
 EXPERIMENT_NAME = "sentinelbank-fraud-detection"
 MODEL_REGISTRY_NAME = "SentinelBankFraudModel"
+
+# MinIO / S3 credentials for MLflow artifact storage
+# These defaults match docker-compose.yml; override via env vars in CI/prod
+os.environ.setdefault("MLFLOW_S3_ENDPOINT_URL", "http://localhost:9000")
+os.environ.setdefault("AWS_ACCESS_KEY_ID", "minioadmin")
+os.environ.setdefault("AWS_SECRET_ACCESS_KEY", "minioadmin")
 
 DROP_COLUMNS = ["nameOrig", "nameDest", "isFlaggedFraud"]
 TYPE_CATEGORIES = ["CASH_IN", "CASH_OUT", "DEBIT", "PAYMENT", "TRANSFER"]

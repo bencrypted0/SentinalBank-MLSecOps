@@ -1,35 +1,8 @@
 version: "3.8"
 
 services:
-  # ── FastAPI Fraud Detection API ──────────────────────────────────────
-  app:
-    build:
-      context: ./app
-      dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./model_training/artifacts:/model_artifacts:ro
-    environment:
-      - MODEL_PATH=/model_artifacts/model.pkl
-    depends_on:
-      - mlflow
-
-  # ── MLflow Tracking Server ──────────────────────────────────────────
-  mlflow:
-    image: ghcr.io/mlflow/mlflow
-    ports:
-      - "5000:5000"
-    volumes:
-      - mlruns_data:/mlflow/mlruns
-    command: >
-      mlflow server
-      --host 0.0.0.0
-      --port 5000
-      --backend-store-uri sqlite:///mlflow/mlruns/mlflow.db
-      --default-artifact-root /mlflow/mlruns/artifacts
-
   # ── MinIO Object Storage ────────────────────────────────────────────
+  # S3-compatible storage backend for MLflow artifacts (model files)
   minio:
     image: minio/minio
     ports:
@@ -42,6 +15,66 @@ services:
     volumes:
       - minio_data:/data
     command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ── MinIO Bucket Initialization ─────────────────────────────────────
+  # One-shot service that creates the 'mlflow' bucket on first startup
+  createbucket:
+    image: minio/mc
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set myminio http://minio:9000 minioadmin minioadmin;
+      mc mb --ignore-existing myminio/mlflow;
+      echo 'Bucket mlflow created (or already exists)';
+      exit 0;
+      "
+
+  # ── MLflow Tracking Server ──────────────────────────────────────────
+  # Tracks experiments, metrics, and model registry
+  # Artifacts are stored in MinIO (S3-compatible) via s3://mlflow/
+  mlflow:
+    image: ghcr.io/mlflow/mlflow
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlruns_data:/mlflow/mlruns
+    environment:
+      - MLFLOW_S3_ENDPOINT_URL=http://minio:9000
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
+    command: >
+      mlflow server
+      --host 0.0.0.0
+      --port 5000
+      --backend-store-uri sqlite:///mlflow/mlruns/mlflow.db
+      --default-artifact-root s3://mlflow/
+      --allowed-hosts "*"
+    depends_on:
+      createbucket:
+        condition: service_completed_successfully
+
+  # ── FastAPI Fraud Detection API ──────────────────────────────────────
+  app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - MLFLOW_S3_ENDPOINT_URL=http://minio:9000
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
+      - MODEL_NAME=SentinelBankFraudModel
+    depends_on:
+      - mlflow
 
 volumes:
   mlruns_data:

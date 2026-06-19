@@ -6,20 +6,16 @@ Loads the trained scikit-learn model with two security layers:
   2. RestrictedUnpickler — whitelists only the sklearn/numpy classes needed,
      blocking arbitrary code execution even if a malicious pickle is loaded.
 
-Mitigates:
-  - CWE-502: Deserialization of Untrusted Data
-  - CWE-354: Improper Validation of Integrity Check Value
-  - Bandit B301: pickle.load on untrusted file
+Supports loading either from:
+  1. MLflow Model Registry (Production): fetches from MinIO (S3) via MLflow,
+     verifies against the run's 'model_sha256' tag, and deserializes securely.
+  2. Local File (Fallback/Dev): verifies local file against .sha256 sidecar.
 """
 
 import os
 import pickle
 import hashlib
-
-import numpy
-
-
-# ── RestrictedUnpickler — Class Whitelist ──────────────────────────────
+import json
 
 # Only these classes are allowed during deserialization.
 # Discovered by scanning the actual model.pkl with ClassDiscoverer.
@@ -56,41 +52,18 @@ class RestrictedUnpickler(pickle.Unpickler):
         return super().find_class(module, name)
 
 
-# ── SHA-256 Hash Verification ─────────────────────────────────────────
-
-
-def _verify_hash(model_path: str) -> None:
-    """
-    Verify the SHA-256 hash of the model file against the expected hash.
-
-    The expected hash is read from a .sha256 sidecar file generated at
-    training time. This ensures the model file has not been modified
-    since it was produced by the trusted training pipeline.
-
-    Raises:
-        FileNotFoundError: If the .sha256 hash file is missing (fail closed).
-        RuntimeError: If the hash does not match (file was tampered with).
-    """
-    hash_path = model_path + ".sha256"
-
-    if not os.path.isfile(hash_path):
-        raise FileNotFoundError(
-            f"Model hash file not found at '{hash_path}'. "
-            "Cannot verify model integrity without a hash file. "
-            "Re-run training to generate it, or check the deployment."
-        )
-
-    # Read expected hash
-    with open(hash_path, "r") as f:
-        expected_hash = f.read().strip()
-
-    # Compute actual hash
+def _compute_hash(file_path: str) -> str:
+    """Compute the SHA-256 hash of a file."""
     sha256 = hashlib.sha256()
-    with open(model_path, "rb") as f:
+    with open(file_path, "rb") as f:
         for chunk in iter(lambda: f.read(8192), b""):
             sha256.update(chunk)
-    actual_hash = sha256.hexdigest()
+    return sha256.hexdigest()
 
+
+def _verify_hash(model_path: str, expected_hash: str) -> None:
+    """Verify file integrity by comparing its hash to the expected hash."""
+    actual_hash = _compute_hash(model_path)
     if actual_hash != expected_hash:
         raise RuntimeError(
             f"Model integrity check FAILED for '{model_path}'.\n"
@@ -98,57 +71,127 @@ def _verify_hash(model_path: str) -> None:
             f"  Actual SHA-256:   {actual_hash}\n"
             "The model file may have been tampered with. Refusing to load."
         )
-
     print(f"[✓] Model integrity verified (SHA-256: {actual_hash[:16]}…)")
 
 
-# ── Model Loading ─────────────────────────────────────────────────────
-
-
-def load_model(model_path: str | None = None):
+def load_model(model_path: str | None = None) -> tuple:
     """
-    Load the fraud-detection model from disk with security verification.
+    Load the fraud-detection model and its metadata with security verification.
 
-    Security layers applied:
-      1. SHA-256 hash check — verifies file integrity against training-time hash
-      2. RestrictedUnpickler — blocks any class not in the whitelist
+    If MODEL_NAME environment variable is set, loads from the MLflow model registry.
+    Otherwise, falls back to loading from a local file path.
 
     Args:
-        model_path: Path to the pickle file. Falls back to MODEL_PATH env var
-                     or a default relative path.
+        model_path: Path to the local pickle file. Falls back to MODEL_PATH env var.
 
     Returns:
-        The deserialized scikit-learn model object.
-
-    Raises:
-        FileNotFoundError: If the model file or hash file does not exist.
-        RuntimeError: If hash verification fails or deserialization fails.
-        pickle.UnpicklingError: If a blocked class is encountered.
+        tuple: (model_object, metadata_dict)
     """
-    if model_path is None:
-        model_path = os.getenv("MODEL_PATH", "../model_training/artifacts/model.pkl")
+    model_name = os.getenv("MODEL_NAME")
 
-    abs_path = os.path.abspath(model_path)
+    if model_name:
+        print(f"[*] Loading model '{model_name}' from MLflow Model Registry...")
+        import mlflow
+        from mlflow.tracking import MlflowClient
 
-    if not os.path.isfile(abs_path):
-        raise FileNotFoundError(
-            f"Model file not found at '{abs_path}'. "
-            "Train the model first or set the MODEL_PATH environment variable."
-        )
+        # Configure client and fetch latest model version
+        tracking_uri = os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5000")
+        mlflow.set_tracking_uri(tracking_uri)
+        client = MlflowClient()
 
-    # Layer 1: Verify file integrity
-    _verify_hash(abs_path)
+        try:
+            # Get latest version (stages include "None", "Staging", "Production")
+            versions = client.get_latest_versions(model_name, stages=["None", "Staging", "Production"])
+            if not versions:
+                raise RuntimeError(f"No versions found for registered model '{model_name}'")
+            latest_version = versions[0]
+            run_id = latest_version.run_id
+            model_version = latest_version.version
+            print(f"    Found model version {model_version} (Run ID: {run_id})")
 
-    # Layer 2: Load with class whitelist restriction
-    try:
-        with open(abs_path, "rb") as f:
-            model = RestrictedUnpickler(f).load()
-    except pickle.UnpicklingError:
-        raise  # Re-raise whitelist violations as-is
-    except Exception as exc:
-        raise RuntimeError(
-            f"Failed to deserialize model from '{abs_path}': {exc}"
-        ) from exc
+            # Retrieve integrity hash from run tags (stored in DB — separate trust boundary)
+            run = client.get_run(run_id)
+            expected_hash = run.data.tags.get("model_sha256")
+            if not expected_hash:
+                raise RuntimeError(
+                    f"Model run {run_id} does not have a 'model_sha256' tag. "
+                    "Cannot verify model integrity."
+                )
 
-    print(f"[✓] Model loaded from {abs_path}")
-    return model
+            # Download model.pkl artifact (from MinIO via MLflow)
+            local_dir = mlflow.artifacts.download_artifacts(artifact_uri=f"models:/{model_name}/{model_version}")
+            downloaded_model_path = os.path.join(local_dir, "model.pkl")
+
+            if not os.path.isfile(downloaded_model_path):
+                raise FileNotFoundError(f"model.pkl not found in downloaded artifacts directory: {local_dir}")
+
+            # Verify integrity
+            _verify_hash(downloaded_model_path, expected_hash)
+
+            # Unpickle securely
+            with open(downloaded_model_path, "rb") as f:
+                model = RestrictedUnpickler(f).load()
+
+            # Attempt to download and parse metadata
+            metadata = {"error": "No metadata found"}
+            try:
+                metadata_path = mlflow.artifacts.download_artifacts(run_id=run_id, artifact_path="model_metadata.json")
+                with open(metadata_path, "r") as f:
+                    metadata = json.load(f)
+            except Exception as e:
+                print(f"[!] Warning: Could not retrieve model metadata: {e}")
+
+            print(f"[✓] Successfully loaded model version {model_version} from MLflow/MinIO")
+            return model, metadata
+
+        except Exception as exc:
+            raise RuntimeError(f"Failed to load model from MLflow registry: {exc}") from exc
+
+    else:
+        # Fallback to local file loading
+        if model_path is None:
+            model_path = os.getenv("MODEL_PATH", "../model_training/artifacts/model.pkl")
+
+        abs_path = os.path.abspath(model_path)
+        print(f"[*] Loading model from local path '{abs_path}'...")
+
+        if not os.path.isfile(abs_path):
+            raise FileNotFoundError(
+                f"Model file not found at '{abs_path}'. "
+                "Train the model first or set the MODEL_PATH/MODEL_NAME environment variables."
+            )
+
+        # Retrieve local expected hash
+        hash_path = abs_path + ".sha256"
+        if not os.path.isfile(hash_path):
+            raise FileNotFoundError(
+                f"Model hash file not found at '{hash_path}'. "
+                "Cannot verify model integrity without a sidecar hash file."
+            )
+        with open(hash_path, "r") as f:
+            expected_hash = f.read().strip()
+
+        # Verify integrity
+        _verify_hash(abs_path, expected_hash)
+
+        # Unpickle securely
+        try:
+            with open(abs_path, "rb") as f:
+                model = RestrictedUnpickler(f).load()
+        except pickle.UnpicklingError:
+            raise
+        except Exception as exc:
+            raise RuntimeError(f"Failed to deserialize model from '{abs_path}': {exc}") from exc
+
+        # Load metadata
+        metadata_path = os.path.join(os.path.dirname(abs_path), "model_metadata.json")
+        metadata = {"error": "model_metadata.json not found"}
+        if os.path.isfile(metadata_path):
+            try:
+                with open(metadata_path, "r") as f:
+                    metadata = json.load(f)
+            except Exception as e:
+                print(f"[!] Warning: Could not load local metadata file: {e}")
+
+        print(f"[✓] Model loaded from {abs_path}")
+        return model, metadata

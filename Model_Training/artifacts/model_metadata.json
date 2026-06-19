@@ -1,5 +1,5 @@
 {
-  "training_date": "2026-06-18T06:07:58.579169Z",
+  "training_date": "2026-06-19T13:48:01.870849Z",
   "dataset_row_count": 50000,
   "feature_names": [
     "step",
@@ -29,6 +29,6 @@
     "random_state": 42,
     "class_weight": "balanced"
   },
-  "python_version": "3.11.15 (main, Jun 11 2026, 05:00:56) [GCC 14.2.0]",
+  "python_version": "3.10.20 (main, Jun 11 2026, 01:11:26) [GCC 14.2.0]",
   "scikit_learn_version": "1.3.2"
 }
