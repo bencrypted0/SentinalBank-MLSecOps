@@ -32,9 +32,24 @@ pipeline {
             }
         }
 
-        stage('Secrets - Gitleaks') {
-            agent { label 'ec2-agent' }
-            steps { echo 'Secrets - Gitleaks' }
+        stage('Secrets Scan - Gitleaks') {
+            agent {label 'ec2-agent'}
+            steps {
+                sh '''
+                    mkdir -p reports
+                    docker run --rm -v $(pwd):/repo ghcr.io/gitleaks/gitleaks:latest \
+                        detect --source /repo --report-path /repo/reports/gitleaks-report.json \
+                        --report-format json --exit-code 1
+                '''
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'reports/gitleaks-report.json', allowEmptyArchive: true
+                }
+                failure {
+                    echo 'Gitleaks detected secrets in the repository. Build failed.'
+                }
+            }
         }
 
         stage('SCA') {
