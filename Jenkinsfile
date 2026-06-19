@@ -23,7 +23,7 @@ pipeline {
                 }
             }
             steps {
-                sh 'bandit -r app/ model_training/ --severity-level high -f json -o bandit-report.json'
+                sh 'bandit -r app/ Model_Training/ --severity-level high -f json -o bandit-report.json'
             }
             post {
                 always {

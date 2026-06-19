@@ -7,6 +7,7 @@ import os
 import sys
 import json
 import pickle
+import hashlib
 import datetime
 
 import numpy as np
@@ -33,6 +34,7 @@ PROJECT_ROOT = os.path.dirname(BASE_DIR)
 DATASET_PATH = os.path.join(PROJECT_ROOT, "Model_Training", "Dataset", "paysim_sample.csv")
 ARTIFACTS_DIR = os.path.join(BASE_DIR, "artifacts")
 MODEL_PATH = os.path.join(ARTIFACTS_DIR, "model.pkl")
+HASH_PATH = os.path.join(ARTIFACTS_DIR, "model.pkl.sha256")
 METADATA_PATH = os.path.join(ARTIFACTS_DIR, "model_metadata.json")
 
 SAMPLE_SIZE = 50_000
@@ -143,6 +145,14 @@ def save_artifacts(clf, feature_names, metrics, dataset_row_count):
     with open(MODEL_PATH, "wb") as f:
         pickle.dump(clf, f)
 
+    # Generate SHA-256 hash for integrity verification at load time
+    with open(MODEL_PATH, "rb") as f:
+        model_hash = hashlib.sha256(f.read()).hexdigest()
+    with open(HASH_PATH, "w") as f:
+        f.write(model_hash)
+    print(f"[*] Model SHA-256: {model_hash}")
+    print(f"    Hash saved to {HASH_PATH}")
+
     # Save metadata
     import sklearn
 
@@ -181,7 +191,12 @@ def log_to_mlflow(clf, metrics, feature_names, dataset_row_count):
 
         # Log artifacts
         mlflow.log_artifact(MODEL_PATH)
+        mlflow.log_artifact(HASH_PATH)
         mlflow.log_artifact(METADATA_PATH)
+
+        # Log model hash as a run tag (stored in MLflow DB — separate trust boundary)
+        with open(HASH_PATH, "r") as f:
+            mlflow.set_tag("model_sha256", f.read().strip())
 
         # Log and register the sklearn model
         mlflow.sklearn.log_model(
