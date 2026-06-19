@@ -1,4 +1,5 @@
 pipeline {
+    agent none
     environment {
         REGISTRY = "my-docker-registry" 
     }
