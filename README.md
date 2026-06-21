@@ -113,3 +113,126 @@ All vulnerabilities are marked with `# VULNERABILITY:` comments in the source co
 - DEBUG mode enabled in uvicorn
 
 These are designed to be detected by security scanning tools such as Bandit, Trivy, Snyk, Semgrep, and Hadolint.
+
+## 📋 API Testing Scenarios (from `app/api_testing.md`)
+
+Below are the PowerShell snippets you can run against the locally-running API.
+
+### 1. Not Fraud — Small normal payment, balances match:
+```powershell
+$legit = @{
+    step = 200
+    type = "PAYMENT"
+    amount = 50.0
+    oldbalanceOrg = 5000.0
+    newbalanceOrig = 4950.0
+    oldbalanceDest = 10000.0
+    newbalanceDest = 10050.0
+    errorBalanceOrig = 0.0
+    errorBalanceDest = 0.0
+    type_CASH_IN = 0
+    type_CASH_OUT = 0
+    type_DEBIT = 0
+    type_PAYMENT = 1
+    type_TRANSFER = 0
+} | ConvertTo-Json
+
+Invoke-RestMethod -Uri http://localhost:8000/predict -Method Post -Body $legit -ContentType "application/json"
+```
+
+### 2. Slightly Suspicious — Medium cash-out, small balance error:
+```powershell
+$suspicious = @{
+    step = 1
+    type = "CASH_OUT"
+    amount = 62000.0
+    oldbalanceOrg = 62000.0
+    newbalanceOrig = 0.0
+    oldbalanceDest = 0.0
+    newbalanceDest = 0.0
+    errorBalanceOrig = 0.0
+    errorBalanceDest = -62000.0
+    type_CASH_IN = 0
+    type_CASH_OUT = 1
+    type_DEBIT = 0
+    type_PAYMENT = 0
+    type_TRANSFER = 0
+} | ConvertTo-Json
+
+Invoke-RestMethod -Uri http://localhost:8000/predict -Method Post -Body $suspicious -ContentType "application/json"
+```
+
+### 3. Definitely Fraud — Huge transfer, account fully drained, massive balance errors:
+```powershell
+$fraud = @{
+    step = 1
+    type = "TRANSFER"
+    amount = 3500000.0
+    oldbalanceOrg = 3500000.0
+    newbalanceOrig = 0.0
+    oldbalanceDest = 0.0
+    newbalanceDest = 0.0
+    errorBalanceOrig = 0.0
+    errorBalanceDest = -3500000.0
+    type_CASH_IN = 0
+    type_CASH_OUT = 0
+    type_DEBIT = 0
+    type_PAYMENT = 0
+    type_TRANSFER = 1
+} | ConvertTo-Json
+
+Invoke-RestMethod -Uri http://localhost:8000/predict -Method Post -Body $fraud -ContentType "application/json"
+```
+
+The key fraud signals the model learned from the PaySim data are:
+- **Transaction type**: TRANSFER and CASH_OUT are riskier
+- **Amount**: Very large amounts
+- **Account draining**: `newbalanceOrig = 0` (entire balance sent out)
+- **Destination doesn't update**: `newbalanceDest = 0` despite receiving money → large negative `errorBalanceDest`
+
+## 🛠️ Command Summary for Training
+
+```bash
+# From the repository root
+python model_training/train.py
+```
+
+### Running the Training Model with Docker
+
+You can run the training pipeline inside a disposable Docker container that connects to the local MLflow and MinIO services.
+
+Make sure you run docker compose up for the services to be available.
+
+#### PowerShell (Windows)
+```powershell
+docker run -it --rm `
+  --network sentinalbank_default `
+  -v "${PWD}:/workspace" `
+  -w /workspace `
+  -e MLFLOW_TRACKING_URI=http://mlflow:5000 `
+  -e MLFLOW_S3_ENDPOINT_URL=http://minio:9000 `
+  -e AWS_ACCESS_KEY_ID=minioadmin `
+  -e AWS_SECRET_ACCESS_KEY=minioadmin `
+  python:3.11-slim `
+  sh -c "pip install --no-cache-dir -r Model_Training/requirements.txt && python Model_Training/train.py"
+```
+
+#### Windows Command Prompt (CMD) / Bash (Linux/macOS)
+```bash
+docker run -it --rm \
+  --network sentinalbank_default \
+  -v "$(pwd):/workspace" \
+  -w /workspace \
+  -e MLFLOW_TRACKING_URI=http://mlflow:5000 \
+  -e MLFLOW_S3_ENDPOINT_URL=http://minio:9000 \
+  -e AWS_ACCESS_KEY_ID=minioadmin \
+  -e AWS_SECRET_ACCESS_KEY=minioadmin \
+  python:3.11-slim \
+  sh -c "pip install --no-cache-dir -r Model_Training/requirements.txt && python Model_Training/train.py"
+```
+
+> **Note:** Ensure you install the updated dependencies if running locally:
+```bash
+pip install -r app/requirements.txt
+pip install -r Model_Training/requirements.txt
+```
