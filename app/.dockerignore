@@ -1,0 +1,7 @@
+**/__pycache__
+**/.env
+**/.git
+Model_Training/*
+*.md
+Jenkinsfile
+app/api_testing.md  
