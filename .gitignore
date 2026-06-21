@@ -11,7 +11,7 @@ build/
 !*.sha256
 
 # Datasets
-*.csv
+paysim_sample.csv
 
 # MLflow
 mlruns/

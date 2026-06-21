@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app
+spec:
+  replicas: 2   # can scale independently of everything else — this is why separate Deployments matter
+  selector:
+    matchLabels: {app: fraud-api}
+  template:
+    metadata:
+      labels: {app: fraud-api}
+    spec:
+      containers:
+      - name: app
+        image: bennetsharwin/sentinalbank-app:1.0   # must be pre-built & pushed; k8s can't run `build:`
+        ports: [{containerPort: 8000}]
+        env:
+        - {name: MLFLOW_TRACKING_URI, value: "http://mlflow:5000"}
+        - {name: MLFLOW_S3_ENDPOINT_URL, value: "http://minio:9000"}
+        - {name: MODEL_NAME, value: "SentinelBankFraudModel"}
+        envFrom:
+        - secretRef: {name: minio-creds}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fraud-api
+spec:
+  selector: {app: fraud-api}
+  ports: [{port: 8000, targetPort: 8000}]
+  type: ClusterIP   # internal only; use LoadBalancer/Ingress to expose externally

@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mlflow
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: mlflow}
+  template:
+    metadata:
+      labels: {app: mlflow}
+    spec:
+      containers:
+      - name: mlflow
+        image: ghcr.io/mlflow/mlflow
+        args:
+          - mlflow server --host 0.0.0.0 --port 5000
+            --backend-store-uri sqlite:///mlflow/mlruns/mlflow.db
+            --default-artifact-root s3://mlflow/
+        ports: [{containerPort: 5000}]
+        env:
+        - {name: MLFLOW_S3_ENDPOINT_URL, value: "http://minio:9000"}
+        envFrom:
+        - secretRef: {name: minio-creds}
+        volumeMounts:
+        - {name: mlruns, mountPath: /mlflow/mlruns}
+      volumes:
+      - name: mlruns
+        persistentVolumeClaim: {claimName: mlflow-pvc}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mlflow
+spec:
+  selector: {app: mlflow}
+  ports: [{port: 5000, targetPort: 5000}]

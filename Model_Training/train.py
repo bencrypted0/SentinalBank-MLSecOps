@@ -31,7 +31,7 @@ import mlflow.sklearn
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(BASE_DIR)
 
-DATASET_PATH = os.path.join(PROJECT_ROOT, "Model_Training", "Dataset", "paysim_sample.csv")
+DATASET_PATH = os.getenv("DATASET_PATH", os.path.join(PROJECT_ROOT, "Model_Training", "Dataset", "paysim_trimmed.csv"))
 ARTIFACTS_DIR = os.path.join(BASE_DIR, "artifacts")
 MODEL_PATH = os.path.join(ARTIFACTS_DIR, "model.pkl")
 HASH_PATH = os.path.join(ARTIFACTS_DIR, "model.pkl.sha256")
@@ -41,13 +41,13 @@ SAMPLE_SIZE = 50_000
 TEST_SIZE = 0.20
 RANDOM_STATE = 42
 
-MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5000")
+MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:5000")
 EXPERIMENT_NAME = "sentinelbank-fraud-detection"
 MODEL_REGISTRY_NAME = "SentinelBankFraudModel"
 
 # MinIO / S3 credentials for MLflow artifact storage
 # These defaults match docker-compose.yml; override via env vars in CI/prod
-os.environ.setdefault("MLFLOW_S3_ENDPOINT_URL", "http://localhost:9000")
+os.environ.setdefault("MLFLOW_S3_ENDPOINT_URL", "http://mlflow:9000")
 os.environ.setdefault("AWS_ACCESS_KEY_ID", "minioadmin")
 os.environ.setdefault("AWS_SECRET_ACCESS_KEY", "minioadmin")
 

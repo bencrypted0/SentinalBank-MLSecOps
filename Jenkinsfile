@@ -94,14 +94,39 @@ pipeline {
             }
         }
 
-        stage('Build Image') {
+        // Docker Build Stage
+        stage('Container Image Build') {
             agent { label 'ec2-agent' }
-            steps { echo 'Build Image' }
+            steps {
+                sh '''
+                    docker build -t sentinelbank-app:${BUILD_NUMBER} app/
+                '''
+            }
         }
 
-        stage('Container Scan') {
+        // Container Scan Stage
+        stage('Container Scan - Trivy') {
             agent { label 'ec2-agent' }
-            steps { echo 'Container Scan' }
+            steps {
+                sh '''
+                    mkdir -p reports
+                    docker run --rm \
+                        -v /var/run/docker.sock:/var/run/docker.sock \
+                        -v $(pwd)/reports:/reports \
+                        aquasec/trivy:latest image \
+                        --format json \
+                        --output /reports/trivy-report.json \
+                        sentinelbank-app:${BUILD_NUMBER}
+                '''
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'reports/trivy-report.json', allowEmptyArchive: true
+                }
+                failure {
+                    echo 'Trivy container scan failed. Build failed.'
+                }
+            }
         }
 
         stage('IaC Scan') {

@@ -1,0 +1,25 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: train-model
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: train
+        image: bennetsharwin/sentinalbank-trainer:1.0
+        imagePullPolicy: IfNotPresent
+        env:
+        - {name: MLFLOW_TRACKING_URI, value: "http://mlflow:5000"}
+        - {name: MLFLOW_S3_ENDPOINT_URL, value: "http://minio:9000"}
+        envFrom:
+        - secretRef: {name: minio-creds}
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true   # only works if /app/artifacts has its own writable volume — see note below
+          capabilities:
+            drop: ["ALL"]

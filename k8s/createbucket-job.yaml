@@ -1,0 +1,17 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: createbucket
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: createbucket
+        image: minio/mc
+        command: ["/bin/sh", "-c"]
+        args:
+          - mc alias set myminio http://minio:9000 $(MINIO_ROOT_USER) $(MINIO_ROOT_PASSWORD);
+            mc mb --ignore-existing myminio/mlflow
+        envFrom:
+        - secretRef: {name: minio-creds}
