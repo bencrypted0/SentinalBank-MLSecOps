@@ -120,6 +120,38 @@ pipeline {
             }
         }
 
+        // SBOM Generation - Syft
+        stage('SBOM Generation - Syft') {
+            agent { label 'ec2-agent' }
+            steps {
+                sh '''
+                    mkdir -p reports
+                    
+                    echo "=== Generating SBOM for API image ==="
+                    docker run --rm \
+                        -v /var/run/docker.sock:/var/run/docker.sock \
+                        anchore/syft:latest \
+                        bennetsharwin/sentinalbank-app:1.${BUILD_ID} \
+                        -o cyclonedx-json > reports/sbom-app.json
+
+                    echo "=== Generating SBOM for Trainer image ==="
+                    docker run --rm \
+                        -v /var/run/docker.sock:/var/run/docker.sock \
+                        anchore/syft:latest \
+                        bennetsharwin/sentinalbank-trainer:1.${BUILD_ID} \
+                        -o cyclonedx-json > reports/sbom-trainer.json
+                '''
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'reports/sbom-*.json', allowEmptyArchive: true
+                }
+                failure {
+                    echo 'Syft SBOM generation failed. Build failed.'
+                }
+            }
+        }
+
         // Container Scan — Trivy (both images)
         stage('Container Scan - Trivy') {
             agent { label 'ec2-agent' }
