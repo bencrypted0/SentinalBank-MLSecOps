@@ -6,6 +6,7 @@ Trains a RandomForestClassifier on the PaySim dataset and logs results to MLflow
 import os
 import sys
 import json
+import time
 import pickle
 import hashlib
 import datetime
@@ -44,6 +45,9 @@ RANDOM_STATE = 42
 MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:5000")
 EXPERIMENT_NAME = "sentinelbank-fraud-detection"
 MODEL_REGISTRY_NAME = "SentinelBankFraudModel"
+
+MLFLOW_RETRY_INTERVAL = int(os.getenv("MLFLOW_RETRY_INTERVAL", "30"))   # seconds between retries
+MAX_MLFLOW_RETRIES = int(os.getenv("MAX_MLFLOW_RETRIES", "5"))           # total attempts
 
 # MinIO / S3 credentials for MLflow artifact storage
 # These defaults match docker-compose.yml; override via env vars in CI/prod
@@ -244,12 +248,19 @@ def main():
     # 6. Save artifacts
     save_artifacts(clf, feature_names, metrics, dataset_row_count=len(df))
 
-    # 7. Log to MLflow (best-effort; training succeeds even if MLflow is down)
-    try:
-        log_to_mlflow(clf, metrics, feature_names, dataset_row_count=len(df))
-    except Exception as exc:
-        print(f"[!] MLflow logging failed (non-fatal): {exc}")
-        print("    Model artifacts were saved locally; you can log to MLflow later.")
+    # 7. Log to MLflow (best-effort with retries; training succeeds even if MLflow is down)
+    for attempt in range(1, MAX_MLFLOW_RETRIES + 1):
+        try:
+            log_to_mlflow(clf, metrics, feature_names, dataset_row_count=len(df))
+            break  # success — stop retrying
+        except Exception as exc:
+            print(f"[!] MLflow logging attempt {attempt}/{MAX_MLFLOW_RETRIES} failed: {exc}")
+            if attempt < MAX_MLFLOW_RETRIES:
+                print(f"    Retrying in {MLFLOW_RETRY_INTERVAL}s …")
+                time.sleep(MLFLOW_RETRY_INTERVAL)
+            else:
+                print("[!] All MLflow logging attempts exhausted (non-fatal).")
+                print("    Model artifacts were saved locally; you can log to MLflow later.")
 
     print("\n[✓] Pipeline complete.")
 
