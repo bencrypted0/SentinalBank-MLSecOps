@@ -1,5 +1,5 @@
 """
-SentinelBank — Secure Model Loader
+SentinalBank — Secure Model Loader
 
 Loads the trained scikit-learn model with two security layers:
   1. SHA-256 hash verification — ensures the model file hasn't been tampered with

@@ -1,5 +1,5 @@
 """
-SentinelBank — Fraud Detection Model Training Pipeline
+SentinalBank — Fraud Detection Model Training Pipeline
 Trains a RandomForestClassifier on the PaySim dataset and logs results to MLflow.
 """
 
@@ -43,8 +43,8 @@ TEST_SIZE = 0.20
 RANDOM_STATE = 42
 
 MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:5000")
-EXPERIMENT_NAME = "sentinelbank-fraud-detection"
-MODEL_REGISTRY_NAME = "SentinelBankFraudModel"
+EXPERIMENT_NAME = "sentinalbank-fraud-detection"
+MODEL_REGISTRY_NAME = "SentinalBankFraudModel"
 
 MLFLOW_RETRY_INTERVAL = int(os.getenv("MLFLOW_RETRY_INTERVAL", "30"))   # seconds between retries
 MAX_MLFLOW_RETRIES = int(os.getenv("MAX_MLFLOW_RETRIES", "5"))           # total attempts
@@ -224,7 +224,7 @@ def log_to_mlflow(clf, metrics, feature_names, dataset_row_count):
 
 def main():
     print("=" * 60)
-    print("  SentinelBank — Fraud Detection Training Pipeline")
+    print("  SentinalBank — Fraud Detection Training Pipeline")
     print("=" * 60)
 
     # 1. Load

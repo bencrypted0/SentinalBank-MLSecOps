@@ -100,8 +100,8 @@ pipeline {
             steps {
                 script {
                     docker.withRegistry('https://index.docker.io/v1/', 'dockerhubcreds') {
-                        sh 'docker build -t bennetsharwin/sentinelbank-app:${BUILD_ID} -f app/Dockerfile .'
-                        sh 'docker push bennetsharwin/sentinelbank-app:${BUILD_ID}'
+                        sh 'docker build -t bennetsharwin/sentinalbank-app:${BUILD_ID} app/'
+                        sh 'docker push bennetsharwin/sentinalbank-app:${BUILD_ID}'
                     }
                 }
             }
@@ -113,8 +113,8 @@ pipeline {
             steps {
                 script {
                     docker.withRegistry('https://index.docker.io/v1/', 'dockerhubcreds') {
-                        sh 'cd Model_Training && docker build -t bennetsharwin/sentinelbank-trainer:${BUILD_ID} .'
-                        sh 'docker push bennetsharwin/sentinelbank-trainer:${BUILD_ID}'
+                        sh 'cd Model_Training && docker build -t bennetsharwin/sentinalbank-trainer:${BUILD_ID} .'
+                        sh 'docker push bennetsharwin/sentinalbank-trainer:${BUILD_ID}'
                     }
                 }
             }
@@ -134,7 +134,7 @@ pipeline {
                         aquasec/trivy:latest image \
                         --format json \
                         --output /reports/trivy-app-report.json \
-                        bennetsharwin/sentinelbank-app:${BUILD_ID}
+                        bennetsharwin/sentinalbank-app:${BUILD_ID}
 
                     echo "=== Scanning Trainer image ==="
                     docker run --rm \
@@ -143,7 +143,7 @@ pipeline {
                         aquasec/trivy:latest image \
                         --format json \
                         --output /reports/trivy-trainer-report.json \
-                        bennetsharwin/sentinelbank-trainer:${BUILD_ID}
+                        bennetsharwin/sentinalbank-trainer:${BUILD_ID}
                 '''
             }
             post {

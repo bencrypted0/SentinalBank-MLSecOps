@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ──────────────────────────────────────────────────────────────────
-# SentinelBank — Kubernetes Bootstrap Script
+# SentinalBank — Kubernetes Bootstrap Script
 # Run from the project root (where the k8s/ directory lives).
 # ──────────────────────────────────────────────────────────────────
 
@@ -12,7 +12,7 @@ set -euo pipefail
 
 
 echo "========================================"
-echo "  SentinelBank — Kubernetes Bootstrap"
+echo "  SentinalBank — Kubernetes Bootstrap"
 echo "========================================"
 
 # ── 1. RBAC & NetworkPolicy (must exist before pods launch) ──────

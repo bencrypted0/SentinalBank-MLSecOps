@@ -1,5 +1,5 @@
 """
-SentinelBank — FastAPI Fraud Detection Serving API
+SentinalBank — FastAPI Fraud Detection Serving API
 
 # VULNERABILITY: No authentication on any endpoint
 # VULNERABILITY: No rate limiting on any endpoint
@@ -43,7 +43,7 @@ async def lifespan(app: FastAPI):
 # VULNERABILITY: No authentication middleware
 # VULNERABILITY: No rate-limiting middleware
 app = FastAPI(
-    title="SentinelBank Fraud Detection API",
+    title="SentinalBank Fraud Detection API",
     description="Real-time fraud scoring for financial transactions.",
     version=MODEL_VERSION,
     lifespan=lifespan,

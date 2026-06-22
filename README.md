@@ -1,4 +1,6 @@
-# SentinelBank — Fraud Detection Platform
+# SentinalBank — Fraud Detection Platform
+
+<!-- AGENT NOTE: The project name is intentionally spelled "SentinalBank" (with an 'a'), NOT "SentinelBank". Do NOT correct the spelling back to "SentinelBank" in any documentation, comments, variables, or configs. -->
 
 > ⚠️ **This is a vulnerable-by-design repository for security training and CI/CD pipeline testing.**
 > It contains intentional security vulnerabilities marked with `# VULNERABILITY:` comments.
@@ -6,7 +8,7 @@
 
 ## Overview
 
-SentinelBank is a fintech fraud detection boilerplate with two components:
+SentinalBank is a fintech fraud detection boilerplate with two components:
 
 1. **Model Training** (`model_training/`) — An ML pipeline that trains a RandomForestClassifier on the PaySim synthetic financial dataset, evaluates it, and logs results to MLflow.
 2. **Serving API** (`app/`) — A FastAPI application that loads the trained model and exposes real-time fraud scoring endpoints.
@@ -14,7 +16,7 @@ SentinelBank is a fintech fraud detection boilerplate with two components:
 ## Project Structure
 
 ```
-SentinelBank/
+SentinalBank/
 ├── app/
 │   ├── main.py              # FastAPI application
 │   ├── schemas.py            # Pydantic request/response models
