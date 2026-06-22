@@ -21,6 +21,20 @@ spec:
         - {name: MODEL_NAME, value: "SentinalBankFraudModel"}
         envFrom:
         - secretRef: {name: minio-creds}
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1001
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false  # python may write bytecode/cache to disk
+          capabilities:
+            drop: ["ALL"]
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
 ---
 apiVersion: v1
 kind: Service
