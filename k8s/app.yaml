@@ -27,5 +27,6 @@ metadata:
   name: fraud-api
 spec:
   selector: {app: fraud-api}
-  ports: [{port: 8000, targetPort: 8000}]
-  type: ClusterIP   # internal only; use LoadBalancer/Ingress to expose externally
+  ports: [{port: 8000, targetPort: 8000, nodePort: 30080}]
+  type: NodePort   # accessible at <node-ip>:30080 without port-forward
+  

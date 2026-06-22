@@ -9,8 +9,7 @@ spec:
       restartPolicy: Never
       containers:
       - name: train
-        image: bennetsharwin/sentinalbank-trainer:1.0
-        imagePullPolicy: IfNotPresent
+        image: bennetsharwin/sentinalbank-trainer:1.1
         env:
         - {name: MLFLOW_TRACKING_URI, value: "http://mlflow:5000"}
         - {name: MLFLOW_S3_ENDPOINT_URL, value: "http://minio:9000"}
@@ -20,6 +19,19 @@ spec:
           runAsNonRoot: true
           runAsUser: 1000
           allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true   # only works if /app/artifacts has its own writable volume — see note below
+          readOnlyRootFilesystem: true
           capabilities:
             drop: ["ALL"]
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        volumeMounts:
+        - name: artifacts
+          mountPath: /app/artifacts
+      volumes:
+      - name: artifacts
+        emptyDir: {}
