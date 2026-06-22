@@ -100,8 +100,8 @@ pipeline {
             steps {
                 script {
                     docker.withRegistry('https://index.docker.io/v1/', 'dockerhubcreds') {
-                        sh 'docker build -t bennetsharwin/sentinalbank-app:${BUILD_ID} app/'
-                        sh 'docker push bennetsharwin/sentinalbank-app:${BUILD_ID}'
+                        sh 'docker build -t bennetsharwin/sentinalbank-app:1.${BUILD_ID} app/'
+                        sh 'docker push bennetsharwin/sentinalbank-app:1.${BUILD_ID}'
                     }
                 }
             }
@@ -113,8 +113,8 @@ pipeline {
             steps {
                 script {
                     docker.withRegistry('https://index.docker.io/v1/', 'dockerhubcreds') {
-                        sh 'cd Model_Training && docker build -t bennetsharwin/sentinalbank-trainer:${BUILD_ID} .'
-                        sh 'docker push bennetsharwin/sentinalbank-trainer:${BUILD_ID}'
+                        sh 'cd Model_Training && docker build -t bennetsharwin/sentinalbank-trainer:1.${BUILD_ID} .'
+                        sh 'docker push bennetsharwin/sentinalbank-trainer:1.${BUILD_ID}'
                     }
                 }
             }
@@ -134,7 +134,7 @@ pipeline {
                         aquasec/trivy:latest image \
                         --format json \
                         --output /reports/trivy-app-report.json \
-                        bennetsharwin/sentinalbank-app:${BUILD_ID}
+                        bennetsharwin/sentinalbank-app:1.${BUILD_ID}
 
                     echo "=== Scanning Trainer image ==="
                     docker run --rm \
@@ -143,7 +143,7 @@ pipeline {
                         aquasec/trivy:latest image \
                         --format json \
                         --output /reports/trivy-trainer-report.json \
-                        bennetsharwin/sentinalbank-trainer:${BUILD_ID}
+                        bennetsharwin/sentinalbank-trainer:1.${BUILD_ID}
                 '''
             }
             post {
@@ -169,10 +169,10 @@ pipeline {
                         --framework kubernetes \
                         --output json \
                         --output-file-path /work/reports \
-                        --soft-fail
+                        --soft-fail --hard-fail-on HIGH
                     
                     # Rename the output to a descriptive name
-                    mv reports/results_json.json reports/checkov-k8s-report.json || true
+                    mv reports/results_json.json reports/checkov-k8s-report.json
 
                     # Also scan Dockerfiles
                     docker run --rm \
@@ -183,9 +183,9 @@ pipeline {
                         --framework dockerfile \
                         --output json \
                         --output-file-path /work/reports \
-                        --soft-fail
+                        --soft-fail --hard-fail-on HIGH
                     
-                    mv reports/results_json.json reports/checkov-dockerfile-report.json || true
+                    mv reports/results_json.json reports/checkov-dockerfile-report.json
                 '''
             }
             post {
