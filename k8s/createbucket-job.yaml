@@ -6,6 +6,7 @@ spec:
   template:
     spec:
       restartPolicy: OnFailure
+      serviceAccountName: sa-createbucket
       containers:
       - name: createbucket
         image: minio/mc

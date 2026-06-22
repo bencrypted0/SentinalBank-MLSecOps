@@ -20,6 +20,7 @@ spec:
     metadata:
       labels: {app: minio}
     spec:
+      serviceAccountName: sa-minio
       containers:
       - name: minio
         image: minio/minio

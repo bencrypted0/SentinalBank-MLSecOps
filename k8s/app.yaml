@@ -10,6 +10,7 @@ spec:
     metadata:
       labels: {app: fraud-api}
     spec:
+      serviceAccountName: sa-app
       containers:
       - name: app
         image: bennetsharwin/sentinalbank-app:1.0   # must be pre-built & pushed; k8s can't run `build:`
