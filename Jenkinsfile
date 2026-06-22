@@ -94,34 +94,61 @@ pipeline {
             }
         }
 
-        // Docker Build Stage
-        stage('Container Image Build') {
+        // Build & Push — API image
+        stage('Build & Push API') {
             agent { label 'ec2-agent' }
             steps {
-                sh '''
-                    docker build -t sentinelbank-app:${BUILD_NUMBER} app/
-                '''
+                script {
+                    docker.withRegistry('https://index.docker.io/v1/', 'dockerhubcreds') {
+                        sh 'docker build -t bennetsharwin/sentinelbank-app:${BUILD_ID} -f app/Dockerfile .'
+                        sh 'docker push bennetsharwin/sentinelbank-app:${BUILD_ID}'
+                    }
+                }
             }
         }
 
-        // Container Scan Stage
+        // Build & Push — Trainer image
+        stage('Build & Push Trainer') {
+            agent { label 'ec2-agent' }
+            steps {
+                script {
+                    docker.withRegistry('https://index.docker.io/v1/', 'dockerhubcreds') {
+                        sh 'cd Model_Training && docker build -t bennetsharwin/sentinelbank-trainer:${BUILD_ID} .'
+                        sh 'docker push bennetsharwin/sentinelbank-trainer:${BUILD_ID}'
+                    }
+                }
+            }
+        }
+
+        // Container Scan — Trivy (both images)
         stage('Container Scan - Trivy') {
             agent { label 'ec2-agent' }
             steps {
                 sh '''
                     mkdir -p reports
+
+                    echo "=== Scanning API image ==="
                     docker run --rm \
                         -v /var/run/docker.sock:/var/run/docker.sock \
                         -v $(pwd)/reports:/reports \
                         aquasec/trivy:latest image \
                         --format json \
-                        --output /reports/trivy-report.json \
-                        sentinelbank-app:${BUILD_NUMBER}
+                        --output /reports/trivy-app-report.json \
+                        bennetsharwin/sentinelbank-app:${BUILD_ID}
+
+                    echo "=== Scanning Trainer image ==="
+                    docker run --rm \
+                        -v /var/run/docker.sock:/var/run/docker.sock \
+                        -v $(pwd)/reports:/reports \
+                        aquasec/trivy:latest image \
+                        --format json \
+                        --output /reports/trivy-trainer-report.json \
+                        bennetsharwin/sentinelbank-trainer:${BUILD_ID}
                 '''
             }
             post {
                 always {
-                    archiveArtifacts artifacts: 'reports/trivy-report.json', allowEmptyArchive: true
+                    archiveArtifacts artifacts: 'reports/trivy-*-report.json', allowEmptyArchive: true
                 }
                 failure {
                     echo 'Trivy container scan failed. Build failed.'
@@ -129,9 +156,46 @@ pipeline {
             }
         }
 
-        stage('IaC Scan') {
+        stage('IaC Scan - Checkov') {
             agent { label 'ec2-agent' }
-            steps { echo 'IaC Scan' }
+            steps {
+                sh '''
+                    mkdir -p reports
+                    docker run --rm \
+                        -v $(pwd):/work \
+                        -w /work \
+                        bridgecrew/checkov:latest \
+                        --directory /work/k8s \
+                        --framework kubernetes \
+                        --output json \
+                        --output-file-path /work/reports \
+                        --soft-fail
+                    
+                    # Rename the output to a descriptive name
+                    mv reports/results_json.json reports/checkov-k8s-report.json || true
+
+                    # Also scan Dockerfiles
+                    docker run --rm \
+                        -v $(pwd):/work \
+                        -w /work \
+                        bridgecrew/checkov:latest \
+                        --file /work/app/Dockerfile \
+                        --framework dockerfile \
+                        --output json \
+                        --output-file-path /work/reports \
+                        --soft-fail
+                    
+                    mv reports/results_json.json reports/checkov-dockerfile-report.json || true
+                '''
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'reports/checkov-*.json', allowEmptyArchive: true
+                }
+                failure {
+                    echo 'Checkov IaC scan failed. Build failed.'
+                }
+            }
         }
 
         stage('Model Scan') {
@@ -143,12 +207,6 @@ pipeline {
             agent { label 'ec2-agent' }
             when { branch 'main' }
             steps { echo 'Sign Image' }
-        }
-
-        stage('Push Image') {
-            agent { label 'ec2-agent' }
-            when { branch 'main' }
-            steps { echo 'Push Image' }
         }
 
         stage('Update Manifest') {
