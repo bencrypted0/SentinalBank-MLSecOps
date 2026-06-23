@@ -7,8 +7,9 @@ dist/
 build/
 
 # Model artifacts
-*.pkl
-!*.sha256
+# *.pkl
+# !*.sha256
+# Model is going to be pushed because its a relatively small model ( < 1MB)
 
 # Datasets
 paysim_sample.csv
