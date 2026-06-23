@@ -59,6 +59,28 @@ services:
     depends_on:
       createbucket:
         condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # ── Model Trainer (one-shot) ─────────────────────────────────────────
+  # Trains the model and logs it to MLflow/MinIO, then exits.
+  # Must complete successfully before the API app starts.
+  trainer:
+    build:
+      context: ./Model_Training
+      dockerfile: Dockerfile
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - MLFLOW_S3_ENDPOINT_URL=http://minio:9000
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
+    depends_on:
+      mlflow:
+        condition: service_healthy
 
   # ── FastAPI Fraud Detection API ──────────────────────────────────────
   app:
@@ -74,7 +96,8 @@ services:
       - AWS_SECRET_ACCESS_KEY=minioadmin
       - MODEL_NAME=SentinalBankFraudModel
     depends_on:
-      - mlflow
+      trainer:
+        condition: service_completed_successfully
 
 volumes:
   mlruns_data:
