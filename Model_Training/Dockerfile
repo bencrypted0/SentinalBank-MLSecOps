@@ -26,7 +26,7 @@ COPY --from=builder /root/.local /home/trainer/.local
 # Copy only what's needed to train — not the whole repo
 COPY --chown=trainer:trainer train.py .
 COPY --chown=trainer:trainer Dataset/paysim_trimmed.csv Dataset/paysim_trimmed.csv
-COPY artifacts/model.pkl artifacts/model.pkl
+COPY --chown=trainer:trainer artifacts/model.pkl artifacts/model.pkl
 
 # Make pip --user installed packages discoverable
 ENV PATH=/home/trainer/.local/bin:$PATH \
