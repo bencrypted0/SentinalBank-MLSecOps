@@ -194,6 +194,7 @@ pipeline {
                         $TRIVY_IMG image \
                         --severity CRITICAL --exit-code 1 \
                         --ignorefile /tmp/.trivyignore \
+                        --show-suppressed \
                         $APP_IMAGE
 
                     docker run --rm \
@@ -202,6 +203,7 @@ pipeline {
                         $TRIVY_IMG image \
                         --severity CRITICAL --exit-code 1 \
                         --ignorefile /tmp/.trivyignore \
+                        --show-suppressed \
                         $TRAINER_IMAGE
                 '''
             }
@@ -260,25 +262,22 @@ pipeline {
             }
         }
 
-        // Model Scan - ModelScan (ProtectAI)
         stage('Model Scan') {
             agent { label 'ec2-agent' }
             steps {
                 sh '''
                     mkdir -p reports artifacts
 
-                    # Extract the trained model from the trainer image
                     docker create --name modelscan-extract $TRAINER_IMAGE || true
                     docker cp modelscan-extract:/app/artifacts/model.pkl artifacts/model.pkl || true
                     docker rm modelscan-extract || true
 
-                    # Scan the model using modelscan
                     docker run --rm \
                         -v $(pwd)/artifacts:/scan \
                         -v $(pwd)/reports:/reports \
                         python:3.11-slim \
                         bash -c "pip install --no-cache-dir modelscan -q && \
-                                 modelscan scan -p /scan/model.pkl -r /reports/modelscan-report.json -f json"
+                                modelscan scan -p /scan/model.pkl -of json -o /reports/modelscan-report.json "
                 '''
             }
             post {
@@ -295,7 +294,7 @@ pipeline {
         // Sign Image - Cosign
         stage('Sign Image') {
             agent { label 'ec2-agent' }
-            // when { branch 'main' }
+            when { branch 'main' }
             steps {
                 withCredentials([
                     file(credentialsId: 'cosign-key', variable: 'COSIGN_KEY_FILE'),
@@ -334,7 +333,7 @@ pipeline {
         // Verify Signature - Cosign
         stage('Verify Signature') {
             agent { label 'ec2-agent' }
-            // when { branch 'main' }
+            when { branch 'main' }
             steps {
                 withCredentials([
                     file(credentialsId: 'cosign-pub', variable: 'COSIGN_PUB_FILE'),
