@@ -1,0 +1,24 @@
+# ======================================================
+# Trivy Ignore List — Unfixable OS-level vulnerabilities
+# ======================================================
+# These CVEs have no upstream fix available (status: affected / fix_deferred).
+# Suppressed to prevent false-positive build failures.
+# Review periodically and remove entries once patches are released.
+
+# ncurses — Buffer overflow (no fix available)
+CVE-2025-69720
+
+# libsqlite3 — Memory corruption (no fix available)
+CVE-2026-11822
+CVE-2026-11824
+
+# perl-base — Path traversal via crafted symlinks (fix_deferred)
+CVE-2026-42496
+CVE-2026-42497
+CVE-2026-9538
+
+# perl-base — Heap buffer overflow (no fix available)
+CVE-2026-8376
+
+# perl-base — Arbitrary code execution via IO::Compress (no fix available)
+CVE-2026-48962
