@@ -110,16 +110,15 @@ ok "MinIO is healthy and 'mlflow' bucket is ready."
 docker compose up -d mlflow
 log "Waiting for MLflow to become healthy..."
 
-# Poll MLflow health (the healthcheck in compose handles retries,
-# but we wait here so the script output is clear)
+# Poll MLflow health from the HOST (the container doesn't have curl)
 MLFLOW_RETRIES=30
 MLFLOW_READY=false
 for i in $(seq 1 $MLFLOW_RETRIES); do
-    if docker compose exec -T mlflow curl -sf http://localhost:5000/health &>/dev/null; then
+    if curl -sf http://localhost:5000/health &>/dev/null; then
         MLFLOW_READY=true
         break
     fi
-    sleep 2
+    sleep 5
 done
 
 if [ "$MLFLOW_READY" = true ]; then

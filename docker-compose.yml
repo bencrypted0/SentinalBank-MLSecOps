@@ -60,11 +60,11 @@ services:
       createbucket:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 15s
+      start_period: 30s
 
   # ── Model Trainer (one-shot) ─────────────────────────────────────────
   # Trains the model and logs it to MLflow/MinIO, then exits.
