@@ -22,3 +22,10 @@ CVE-2026-8376
 
 # perl-base — Arbitrary code execution via IO::Compress (no fix available)
 CVE-2026-48962
+
+# mlflow packages Ignore because newer version currently requires a full syntax changes
+CVE-2025-15036
+CVE-2025-15379
+CVE-2026-0545
+CVE-2026-0596
+CVE-2026-2635
