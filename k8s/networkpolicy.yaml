@@ -1,11 +1,8 @@
-# ──────────────────────────────────────────────────────────────────
 # NetworkPolicy — pod-to-pod firewall rules
-#
+
 # Default: deny ALL ingress in the namespace.
-# Then each policy below opens only the specific ports that each
-# component actually needs.  Egress is left open (pods can still
-# reach DNS, the internet, etc.).
-# ──────────────────────────────────────────────────────────────────
+# Then each policy below opens only the specific ports that each component actually needs.
+# Egress is left open (pods can still reach DNS, the internet, etc.).
 
 # 1. Default deny ALL ingress across the namespace
 apiVersion: networking.k8s.io/v1
@@ -18,53 +15,8 @@ spec:
   # No ingress rules → everything is denied
 
 ---
-# 2. MinIO — only accept S3 API traffic (port 9000) from
-#    MLflow, the app, the trainer, and the createbucket job.
-#    Console port (9001) is only opened for MLflow (optional admin access).
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: allow-minio-ingress
-spec:
-  podSelector:
-    matchLabels: {app: minio}
-  policyTypes: [Ingress]
-  ingress:
-  - ports:
-    - {protocol: TCP, port: 9000}
-    from:
-    - podSelector:
-        matchLabels: {app: mlflow}
-    - podSelector:
-        matchLabels: {app: fraud-api}
-    - podSelector:
-        matchLabels: {job-name: train-model}
-    - podSelector:
-        matchLabels: {job-name: createbucket}
-
----
-# 3. MLflow — only accept tracking API traffic (port 5000) from
-#    the app (model registry fetch) and the trainer (logging).
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: allow-mlflow-ingress
-spec:
-  podSelector:
-    matchLabels: {app: mlflow}
-  policyTypes: [Ingress]
-  ingress:
-  - ports:
-    - {protocol: TCP, port: 5000}
-    from:
-    - podSelector:
-        matchLabels: {app: fraud-api}
-    - podSelector:
-        matchLabels: {job-name: train-model}
-
----
-# 4. App (fraud-api) — accept HTTP traffic (port 8000) from anywhere.
-#    This is the public-facing service exposed via NodePort.
+# 2. App (fraud-api) — accept HTTP traffic (port 8000) from anywhere.
+#    This is the internal service exposed via Ingress.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:

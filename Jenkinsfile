@@ -362,14 +362,23 @@ pipeline {
                 failure { echo 'Signature verification failed — image may be tampered or unsigned. Build failed.' }
             }
         }
-
-        // Update Manifest
-        stage('Update Manifest') {
+        // Deploy Stage
+        stage('Deploy') {
             agent { label 'ec2-agent' }
             when { branch 'main' }
-            steps { echo 'Update Manifest' }
+            environment {
+                PROD_SERVER_IP = credentials('prod-server-ip') // or hardcode if static
+            }
+            steps {
+                sshagent(credentials: ['prod-server-ssh']) {
+                    sh '''
+                        ssh -o StrictHostKeyChecking=no ubuntu@${PROD_SERVER_IP} \
+                          "kubectl set image deployment/app app=bennetsharwin/sentinalbank-app:1.${BUILD_ID} && \
+                           kubectl rollout status deployment/app --timeout=120s || \
+                           (kubectl rollout undo deployment/app && exit 1)"
+                    '''
+                }
+            }
         }
-
-        // No deploy stages — ArgoCD handles that
     }
 }

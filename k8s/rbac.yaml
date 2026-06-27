@@ -1,42 +1,6 @@
-# ──────────────────────────────────────────────────────────────────
-# RBAC — Least-privilege ServiceAccounts
-#
-# Each component gets its own ServiceAccount with
-# automountServiceAccountToken: false so no K8s API token
-# is mounted into the pod.  None of these workloads need to
-# talk to the Kubernetes API, so zero RBAC bindings are needed.
-# ──────────────────────────────────────────────────────────────────
-
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: sa-minio
-automountServiceAccountToken: false
-
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: sa-mlflow
-automountServiceAccountToken: false
-
----
+# RBAC - Least-privilege ServiceAccounts
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: sa-app
-automountServiceAccountToken: false
-
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: sa-trainer
-automountServiceAccountToken: false
-
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: sa-createbucket
 automountServiceAccountToken: false

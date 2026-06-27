@@ -13,11 +13,11 @@ spec:
       serviceAccountName: sa-app
       containers:
       - name: app
-        image: bennetsharwin/sentinalbank-app:1.0   # must be pre-built & pushed; k8s can't run `build:`
+        image: bennetsharwin/sentinalbank-app:latest   # must be pre-built & pushed; k8s can't run `build:`
         ports: [{containerPort: 8000}]
         env:
-        - {name: MLFLOW_TRACKING_URI, value: "http://mlflow:5000"}
-        - {name: MLFLOW_S3_ENDPOINT_URL, value: "http://minio:9000"}
+        - {name: MLFLOW_TRACKING_URI, value: "http://PROD_EC2_PRIVATE_IP:5000"}
+        - {name: MLFLOW_S3_ENDPOINT_URL, value: "http://PROD_EC2_PRIVATE_IP:9000"}
         - {name: MODEL_NAME, value: "SentinalBankFraudModel"}
         envFrom:
         - secretRef: {name: minio-creds}
@@ -42,6 +42,5 @@ metadata:
   name: fraud-api
 spec:
   selector: {app: fraud-api}
-  ports: [{port: 8000, targetPort: 8000, nodePort: 30080}]
-  type: NodePort   # accessible at <node-ip>:30080 without port-forward
-  
+  ports: [{port: 8000, targetPort: 8000}]
+  type: ClusterIP   # Exposed only internally within the cluster, to be routed via Ingress

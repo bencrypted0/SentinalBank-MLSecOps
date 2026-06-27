@@ -29,10 +29,11 @@ echo ""
 echo "[2/4] Applying Secrets..."
 kubectl apply -f k8s/secret.yaml
 
-# => 4. Deploy App API (configured to point to Prod EC2 Private IP)
+# => 4. Deploy App API and Ingress (configured to point to Prod EC2 Private IP)
 echo ""
-echo "[3/4] Deploying App API (substituting host IP)..."
+echo "[3/4] Deploying App API (substituting host IP) and Ingress..."
 sed "s/PROD_EC2_PRIVATE_IP/$PROD_IP/g" k8s/app.yaml | kubectl apply -f -
+kubectl apply -f k8s/ingress.yaml
 kubectl wait --for=condition=ready pod -l app=fraud-api --timeout=120s
 echo "App is ready."
 
@@ -47,12 +48,13 @@ echo ""
 echo "  ✓ App deployed to Kubernetes!"
 echo ""
 
-# If running on Minikube with NodePort, print the access URL
+# If running on Minikube, print Ingress info
 if command -v minikube &> /dev/null; then
-  NODE_PORT=$(kubectl get svc fraud-api -o jsonpath='{.spec.ports[0].nodePort}' 2>/dev/null || true)
-  if [ -n "$NODE_PORT" ]; then
-    MINIKUBE_IP=$(minikube ip 2>/dev/null || true)
-    echo "NodePort access: http://${MINIKUBE_IP}:${NODE_PORT}/health"
+  MINIKUBE_IP=$(minikube ip 2>/dev/null || true)
+  if [ -n "$MINIKUBE_IP" ]; then
+    echo "Minikube Ingress configured."
+    echo "Access URL: http://${MINIKUBE_IP}/health"
+    echo "  (Note: Ensure 'minikube addons enable ingress' is run to activate the ingress controller)"
     echo ""
   fi
 fi

@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: fraud-api-ingress
+  namespace: default
+  annotations:
+    # Disable redirect to HTTPS since we are not binding a TLS secret/domain by default
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    # Tells Nginx the backend app speaks plain HTTP
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+spec:
+  # Instructs Kubernetes to use the Nginx Ingress Controller
+  ingressClassName: nginx
+  rules:
+  # Wildcard rule: matches all traffic hitting the Ingress Controller's IP
+  - http:
+      paths:
+      # Route all traffic targeting '/' (and below) to the fraud-api service
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: fraud-api
+            port:
+              number: 8000
+
