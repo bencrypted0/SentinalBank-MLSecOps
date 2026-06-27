@@ -19,8 +19,16 @@ spec:
         - {name: MLFLOW_TRACKING_URI, value: "http://PROD_EC2_PRIVATE_IP:5000"}
         - {name: MLFLOW_S3_ENDPOINT_URL, value: "http://PROD_EC2_PRIVATE_IP:9000"}
         - {name: MODEL_NAME, value: "SentinalBankFraudModel"}
-        envFrom:
-        - secretRef: {name: minio-creds}
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: minio-creds
+              key: MINIO_ROOT_USER
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: minio-creds
+              key: MINIO_ROOT_PASSWORD
         securityContext:
           runAsNonRoot: true
           runAsUser: 1001

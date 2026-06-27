@@ -14,7 +14,7 @@ echo "========================================"
 echo ""
 echo "Detecting host/Prod EC2 Private IP..."
 # Tryng AWS IMDSv2, fallback to hostname -I, fallback to standard docker gateway
-PROD_IP=$(curl -s --timeout 2 http://169.254.169.254/latest/meta-data/local-ipv4 || hostname -I | awk '{print $1}' || echo "172.17.0.1")
+PROD_IP=$(hostname -I | awk '{print $1}' || echo "172.17.0.1")
 echo "Using Private IP: $PROD_IP"
 
 # => 2. RBAC & NetworkPolicy
