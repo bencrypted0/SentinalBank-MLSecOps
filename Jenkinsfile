@@ -250,6 +250,20 @@ pipeline {
                         --soft-fail --hard-fail-on HIGH
                     
                     mv reports/results_json.json reports/checkov-dockerfile-report.json
+
+                    # Also scan Terraform
+                    docker run --rm \
+                        -v $(pwd):/work \
+                        -w /work \
+                        $CHECKOV_IMG \
+                        --directory /work/terraform \
+                        --framework terraform \
+                        --output json \
+                        --output-file-path /work/reports \
+                        --quiet \
+                        --soft-fail --hard-fail-on HIGH
+                    
+                    mv reports/results_json.json reports/checkov-terraform-report.json
                 '''
             }
             post {
@@ -273,7 +287,9 @@ pipeline {
             }
             steps {
                 sh '''
+                    export HOME=/tmp
                     pip install --no-cache-dir scikit-learn==1.5.0 pandas==2.1.4 numpy==1.26.2
+                    export PATH=$HOME/.local/bin:$PATH
                     export WORKSPACE=/app
                     python Model_Training/save_model.py
                 '''
