@@ -80,22 +80,6 @@ services:
       mlflow:
         condition: service_healthy
 
-  # ── FastAPI Fraud Detection API ──────────────────────────────────────
-  app:
-    build:
-      context: ./app
-      dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
-    environment:
-      - MLFLOW_TRACKING_URI=http://mlflow:5000
-      - MLFLOW_S3_ENDPOINT_URL=http://minio:9000
-      - AWS_ACCESS_KEY_ID=minioadmin
-      - AWS_SECRET_ACCESS_KEY=minioadmin
-      - MODEL_NAME=SentinalBankFraudModel
-    depends_on:
-      trainer:
-        condition: service_completed_successfully
 
 volumes:
   mlruns_data:

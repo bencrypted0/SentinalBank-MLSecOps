@@ -23,6 +23,12 @@ minio-data/
 # Environment
 .env
 
+.terraform
+terraform.*
+.terraform.*
+terraform/sentinalbank-deployer-key.pem
+
+
 # IDE
 .vscode/
 .idea/
