@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: app
 spec:
-  replicas: 2   # can scale independently of everything else — this is why separate Deployments matter
+  replicas: 2
   selector:
     matchLabels: {app: fraud-api}
   template:
@@ -13,7 +13,7 @@ spec:
       serviceAccountName: sa-app
       containers:
       - name: app
-        image: bennetsharwin/sentinalbank-app:latest   # must be pre-built & pushed; k8s can't run `build:`
+        image: bennetsharwin/sentinalbank-app:initial   
         ports: [{containerPort: 8000}]
         env:
         - {name: MLFLOW_TRACKING_URI, value: "http://PROD_EC2_PRIVATE_IP:5000"}
@@ -33,7 +33,7 @@ spec:
           runAsNonRoot: true
           runAsUser: 1001
           allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: false  # python may write bytecode/cache to disk
+          readOnlyRootFilesystem: false 
           capabilities:
             drop: ["ALL"]
         resources:
@@ -51,4 +51,4 @@ metadata:
 spec:
   selector: {app: fraud-api}
   ports: [{port: 8000, targetPort: 8000}]
-  type: ClusterIP   # Exposed only internally within the cluster, to be routed via Ingress
+  type: ClusterIP

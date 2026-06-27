@@ -28,7 +28,7 @@ pipeline {
             steps {
                 sh '''
                     mkdir -p reports
-                    docker run --rm -v $(pwd):/repo $GITLEAKS_IMG \
+                    docker run --rm -v "$(pwd)":/repo $GITLEAKS_IMG \
                         detect --source /repo --report-path /repo/reports/gitleaks-report.json \
                         --report-format json --exit-code 1
                 '''
@@ -170,8 +170,8 @@ pipeline {
                     echo "=== Scanning API image ==="
                     docker run --rm \
                         -v /var/run/docker.sock:/var/run/docker.sock \
-                        -v $(pwd)/reports:/reports \
-                        -v $(pwd)/.trivyignore:/root/.trivyignore \
+                        -v "$(pwd)/reports":/reports \
+                        -v "$(pwd)/.trivyignore":/root/.trivyignore \
                         $TRIVY_IMG image \
                         --format json \
                         --output /reports/trivy-app-report.json \
@@ -180,8 +180,8 @@ pipeline {
                     echo "=== Scanning Trainer image ==="
                     docker run --rm \
                         -v /var/run/docker.sock:/var/run/docker.sock \
-                        -v $(pwd)/reports:/reports \
-                        -v $(pwd)/.trivyignore:/root/.trivyignore \
+                        -v "$(pwd)/reports":/reports \
+                        -v "$(pwd)/.trivyignore":/root/.trivyignore \
                         $TRIVY_IMG image \
                         --format json \
                         --output /reports/trivy-trainer-report.json \
@@ -190,7 +190,7 @@ pipeline {
                     echo "=== Gating on CRITICAL ==="
                     docker run --rm \
                         -v /var/run/docker.sock:/var/run/docker.sock \
-                        -v ${WORKSPACE}/.trivyignore:/tmp/.trivyignore \
+                        -v "${WORKSPACE}/.trivyignore":/tmp/.trivyignore \
                         $TRIVY_IMG image \
                         --severity CRITICAL --exit-code 1 \
                         --ignorefile /tmp/.trivyignore \
@@ -199,7 +199,7 @@ pipeline {
 
                     docker run --rm \
                         -v /var/run/docker.sock:/var/run/docker.sock \
-                        -v ${WORKSPACE}/.trivyignore:/tmp/.trivyignore \
+                        -v "${WORKSPACE}/.trivyignore":/tmp/.trivyignore \
                         $TRIVY_IMG image \
                         --severity CRITICAL --exit-code 1 \
                         --ignorefile /tmp/.trivyignore \
@@ -262,28 +262,48 @@ pipeline {
             }
         }
 
+        // Build Temporary Model — CI-only: train the model and save to workspace for scanning
+        stage('Build Temporary Model for Scans') {
+            agent {
+                docker {
+                    image 'python:3.11-slim'
+                    label 'ec2-agent'
+                    args '-v ${WORKSPACE}:/app -w /app'
+                }
+            }
+            steps {
+                sh '''
+                    pip install --no-cache-dir scikit-learn==1.5.0 pandas==2.1.4 numpy==1.26.2
+                    export WORKSPACE=/app
+                    python Model_Training/save_model.py
+                '''
+            }
+            post {
+                failure {
+                    echo 'CI model build failed. Pipeline aborted.'
+                }
+            }
+        }
+
+        // Model Scan — scans the workspace-resident model artifact
         stage('Model Scan') {
             agent { label 'ec2-agent' }
             steps {
                 sh '''
-                    mkdir -p reports artifacts
-
-                    docker create --name modelscan-extract $TRAINER_IMAGE || true
-                    docker cp modelscan-extract:/app/artifacts/model.pkl artifacts/model.pkl || true
-                    docker rm modelscan-extract || true
+                    mkdir -p reports
 
                     docker run --rm \
-                        -v $(pwd)/artifacts:/scan \
-                        -v $(pwd)/reports:/reports \
+                        -v "$(pwd)/artifacts/modelscan":/scan \
+                        -v "$(pwd)/reports":/reports \
                         python:3.11-slim \
                         bash -c "pip install --no-cache-dir modelscan -q && \
-                                modelscan scan -p /scan/model.pkl -of json -o /reports/modelscan-report.json "
+                                modelscan scan -p /scan/model.pkl -of json -o /reports/modelscan-report.json"
                 '''
             }
             post {
                 always {
                     archiveArtifacts artifacts: 'reports/modelscan-report.json', allowEmptyArchive: true
-                    sh 'rm -rf artifacts/model.pkl || true'
+                    sh 'rm -rf artifacts/modelscan || true'
                 }
                 failure {
                     echo 'ModelScan detected issues in the ML model. Build failed.'
