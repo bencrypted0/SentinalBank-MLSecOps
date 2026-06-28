@@ -305,17 +305,19 @@ pipeline {
                     usernamePassword(credentialsId: 'dockerhubcreds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')
                 ]) {
                     sh '''
-                        mkdir -p $(pwd)/docker-config
-                        echo $DOCKER_PASS | docker --config $(pwd)/docker-config login -u $DOCKER_USER --password-stdin
-
                         chmod 644 $COSIGN_KEY_FILE
 
                         docker run --rm \
                             -e COSIGN_PASSWORD=$COSIGN_PASSWORD \
                             -v $COSIGN_KEY_FILE:/tmp/cosign.key \
-                            -v $(pwd)/docker-config:/root/.docker \
                             ${COSIGN_IMG} \
                             sign --key /tmp/cosign.key --yes \
+                            --new-bundle-format=false \
+                            --use-signing-config=false \
+                            --tlog-upload=false \
+                            --registry-referrers-mode=legacy \
+                            --registry-username $DOCKER_USER \
+                            --registry-password $DOCKER_PASS \
                             ${APP_IMAGE_DIGEST}
                     '''
                 }
@@ -337,22 +339,25 @@ pipeline {
                     usernamePassword(credentialsId: 'dockerhubcreds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')
                 ]) {
                     sh '''
-                        mkdir -p $(pwd)/docker-config
-                        echo $DOCKER_PASS | docker --config $(pwd)/docker-config login -u $DOCKER_USER --password-stdin
+                        chmod 644 $COSIGN_PUB_FILE
 
                         docker run --rm \
                             -v $COSIGN_PUB_FILE:/tmp/cosign.pub \
-                            -v $(pwd)/docker-config:/root/.docker \
                             ${COSIGN_IMG} \
-                            verify --key /tmp/cosign.pub ${APP_IMAGE_DIGEST}
+                            verify --key /tmp/cosign.pub \
+                            --new-bundle-format=false \
+                            --insecure-ignore-tlog=true \
+                            --registry-username $DOCKER_USER \
+                            --registry-password $DOCKER_PASS \
+                            ${APP_IMAGE_DIGEST}
                     '''
                 }
             }
             post {
-                always { sh 'rm -rf $(pwd)/docker-config || true' }
                 failure { echo 'Signature verification failed — image may be tampered or unsigned. Build failed.' }
             }
         }
+
         // Deploy Stage
         stage('Deploy') {
             agent { label 'ec2-agent' }
@@ -364,9 +369,9 @@ pipeline {
                 sshagent(credentials: ['prod-server-ssh']) {
                     sh '''
                         ssh -o StrictHostKeyChecking=no ubuntu@${PROD_SERVER_IP} \
-                          "kubectl set image deployment/app app=bennetsharwin/sentinalbank-app:1.${APP_IMAGE_DIGEST} && \
-                           kubectl rollout status deployment/app --timeout=120s || \
-                           (kubectl rollout undo deployment/app && exit 1)"
+                        "kubectl set image deployment/app app=${APP_IMAGE_DIGEST} && \
+                        kubectl rollout status deployment/app --timeout=120s || \
+                        (kubectl rollout undo deployment/app && exit 1)"
                     '''
                 }
             }
