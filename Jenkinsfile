@@ -23,7 +23,7 @@ pipeline {
         }
 
         // Secrets Scan - Gitleaks
-        stage('Secrets Scan - Gitleaks') {
+        stage('GitLeaks') {
             agent {label 'ec2-agent'}
             steps {
                 sh '''
@@ -44,7 +44,7 @@ pipeline {
         }
 
         // SCA - pip-audit
-        stage('SCA - pip-audit') {
+        stage('Pip Audit') {
             agent {
                 docker {
                     image 'python:3.11-slim'
@@ -77,7 +77,7 @@ pipeline {
         }
 
         // Bandit SAST Scan
-        stage('Bandit SAST Scan') {
+        stage('Bandit') {
             agent {
                 docker {
                     image "${env.BANDIT_IMG}"
@@ -103,7 +103,7 @@ pipeline {
         }
 
         // Build & Push — API image
-        stage('Build & Push API') {
+        stage('API Image Push') {
             agent { label 'ec2-agent' }
             steps {
                 script {
@@ -116,7 +116,7 @@ pipeline {
         }
 
         // Build & Push — Trainer image
-        stage('Build & Push Trainer') {
+        stage('Trainer Image Push') {
             agent { label 'ec2-agent' }
             steps {
                 script {
@@ -135,14 +135,14 @@ pipeline {
                 sh '''
                     mkdir -p reports
                     
-                    echo "=== Generating SBOM for API image ==="
+                    echo "---- API SBOM Generation ----"
                     docker run --rm \
                         -v /var/run/docker.sock:/var/run/docker.sock \
                         $SYFT_IMG \
                         $APP_IMAGE \
                         -o cyclonedx-json > reports/sbom-app.json
 
-                    echo "=== Generating SBOM for Trainer image ==="
+                    echo "---- Trainer SBOM Generation ----"
                     docker run --rm \
                         -v /var/run/docker.sock:/var/run/docker.sock \
                         $SYFT_IMG \
@@ -288,7 +288,7 @@ pipeline {
             steps {
                 sh '''
                     export HOME=/tmp
-                    pip install --no-cache-dir scikit-learn==1.5.0 pandas==2.1.4 numpy==1.26.2
+                    pip install --no-cache-dir -r Model_Training/requirements.txt
                     export PATH=$HOME/.local/bin:$PATH
                     export WORKSPACE=/app
                     python Model_Training/save_model.py
@@ -301,7 +301,7 @@ pipeline {
             }
         }
 
-        // Model Scan — scans the workspace-resident model artifact
+        // Model Scan — scans the model artifact
         stage('Model Scan') {
             agent { label 'ec2-agent' }
             steps {
