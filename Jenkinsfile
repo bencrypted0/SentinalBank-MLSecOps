@@ -9,7 +9,6 @@ pipeline {
         COSIGN_IMG    = "gcr.io/projectsigstore/cosign@sha256:6bbe0d281d955c79f85b325f0f7e651c1bcab5a4fa4ad4903d74955178a3b2eb"
         BANDIT_IMG    = "ghcr.io/pycqa/bandit/bandit@sha256:5cfa0381199ecebc07ca4b5322c853faaea6f4d7fc4940f7a74890a91c194d9b"
         APP_IMAGE     = "bennetsharwin/sentinalbank-app:1.${BUILD_ID}"
-        TRAINER_IMAGE = "bennetsharwin/sentinalbank-trainer:1.${BUILD_ID}"
     }
 
     stages {
@@ -111,22 +110,15 @@ pipeline {
                         sh 'docker build -t $APP_IMAGE app/'
                         sh 'docker push $APP_IMAGE'
                     }
+                    env.APP_IMAGE_DIGEST = sh(
+                        script: "docker inspect --format='{{index .RepoDigests 0}}' $APP_IMAGE",
+                        returnStdout: true
+                    ).trim()
+                    echo "API image digest: ${env.APP_IMAGE_DIGEST}"
                 }
             }
         }
 
-        // Build & Push — Trainer image
-        stage('Trainer Image Push') {
-            agent { label 'ec2-agent' }
-            steps {
-                script {
-                    docker.withRegistry('https://index.docker.io/v1/', 'dockerhubcreds') {
-                        sh 'cd Model_Training && docker build -t $TRAINER_IMAGE .'
-                        sh 'docker push $TRAINER_IMAGE'
-                    }
-                }
-            }
-        }
 
         // SBOM Generation - Syft
         stage('SBOM Generation - Syft') {
@@ -139,15 +131,9 @@ pipeline {
                     docker run --rm \
                         -v /var/run/docker.sock:/var/run/docker.sock \
                         $SYFT_IMG \
-                        $APP_IMAGE \
+                        $APP_IMAGE_DIGEST  \
                         -o cyclonedx-json > reports/sbom-app.json
 
-                    echo "---- Trainer SBOM Generation ----"
-                    docker run --rm \
-                        -v /var/run/docker.sock:/var/run/docker.sock \
-                        $SYFT_IMG \
-                        $TRAINER_IMAGE \
-                        -o cyclonedx-json > reports/sbom-trainer.json
                 '''
             }
             post {
@@ -177,16 +163,6 @@ pipeline {
                         --output /reports/trivy-app-report.json \
                         $APP_IMAGE
 
-                    echo "=== Scanning Trainer image ==="
-                    docker run --rm \
-                        -v /var/run/docker.sock:/var/run/docker.sock \
-                        -v "$(pwd)/reports":/reports \
-                        -v "$(pwd)/.trivyignore":/root/.trivyignore \
-                        $TRIVY_IMG image \
-                        --format json \
-                        --output /reports/trivy-trainer-report.json \
-                        $TRAINER_IMAGE
-
                     echo "=== Gating on CRITICAL ==="
                     docker run --rm \
                         -v /var/run/docker.sock:/var/run/docker.sock \
@@ -196,15 +172,6 @@ pipeline {
                         --ignorefile /tmp/.trivyignore \
                         --show-suppressed \
                         $APP_IMAGE
-
-                    docker run --rm \
-                        -v /var/run/docker.sock:/var/run/docker.sock \
-                        -v "${WORKSPACE}/.trivyignore":/tmp/.trivyignore \
-                        $TRIVY_IMG image \
-                        --severity CRITICAL --exit-code 1 \
-                        --ignorefile /tmp/.trivyignore \
-                        --show-suppressed \
-                        $TRAINER_IMAGE
                 '''
             }
             post {
@@ -341,13 +308,7 @@ pipeline {
                         mkdir -p $(pwd)/docker-config
                         echo $DOCKER_PASS | docker --config $(pwd)/docker-config login -u $DOCKER_USER --password-stdin
 
-                        docker run --rm \
-                            -e COSIGN_PASSWORD=$COSIGN_PASSWORD \
-                            -v $COSIGN_KEY_FILE:/tmp/cosign.key \
-                            -v $(pwd)/docker-config:/root/.docker \
-                            ${COSIGN_IMG} \
-                            sign --key /tmp/cosign.key --yes \
-                            ${APP_IMAGE}
+                        chmod 644 $COSIGN_KEY_FILE
 
                         docker run --rm \
                             -e COSIGN_PASSWORD=$COSIGN_PASSWORD \
@@ -355,7 +316,7 @@ pipeline {
                             -v $(pwd)/docker-config:/root/.docker \
                             ${COSIGN_IMG} \
                             sign --key /tmp/cosign.key --yes \
-                            ${TRAINER_IMAGE}
+                            ${APP_IMAGE_DIGEST}
                     '''
                 }
             }
@@ -383,13 +344,7 @@ pipeline {
                             -v $COSIGN_PUB_FILE:/tmp/cosign.pub \
                             -v $(pwd)/docker-config:/root/.docker \
                             ${COSIGN_IMG} \
-                            verify --key /tmp/cosign.pub ${APP_IMAGE}
-
-                        docker run --rm \
-                            -v $COSIGN_PUB_FILE:/tmp/cosign.pub \
-                            -v $(pwd)/docker-config:/root/.docker \
-                            ${COSIGN_IMG} \
-                            verify --key /tmp/cosign.pub ${TRAINER_IMAGE}
+                            verify --key /tmp/cosign.pub ${APP_IMAGE_DIGEST}
                     '''
                 }
             }
@@ -403,13 +358,13 @@ pipeline {
             agent { label 'ec2-agent' }
             when { branch 'main' }
             environment {
-                PROD_SERVER_IP = credentials('prod-server-ip') // or hardcode if static
+                PROD_SERVER_IP = '10.0.1.30'
             }
             steps {
                 sshagent(credentials: ['prod-server-ssh']) {
                     sh '''
                         ssh -o StrictHostKeyChecking=no ubuntu@${PROD_SERVER_IP} \
-                          "kubectl set image deployment/app app=bennetsharwin/sentinalbank-app:1.${BUILD_ID} && \
+                          "kubectl set image deployment/app app=bennetsharwin/sentinalbank-app:1.${APP_IMAGE_DIGEST} && \
                            kubectl rollout status deployment/app --timeout=120s || \
                            (kubectl rollout undo deployment/app && exit 1)"
                     '''
