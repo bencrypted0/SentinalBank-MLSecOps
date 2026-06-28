@@ -313,7 +313,7 @@ pipeline {
                         -v "$(pwd)/reports":/reports \
                         python:3.11-slim \
                         bash -c "pip install --no-cache-dir modelscan -q && \
-                                modelscan scan -p /scan/model.pkl -of json -o /reports/modelscan-report.json"
+                                modelscan scan -p /scan/model.pkl -r json -o /reports/modelscan-report.json"
                 '''
             }
             post {
