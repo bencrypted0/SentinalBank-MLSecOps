@@ -1,9 +1,5 @@
 """
 SentinalBank — FastAPI Fraud Detection Serving API
-
-# VULNERABILITY: No authentication on any endpoint
-# VULNERABILITY: No rate limiting on any endpoint
-# VULNERABILITY: Hardcoded database credentials (see below)
 """
 
 import os
@@ -24,8 +20,6 @@ db_connection_string = os.getenv("DATABASE_URL")
 MODEL_VERSION = "1.0.0"
 
 
-# ──────────────────────────── Lifespan ─────────────────────────────────
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Load model once at startup; store in app.state."""
@@ -34,14 +28,10 @@ async def lifespan(app: FastAPI):
 
     yield  # app is running
 
-    # Cleanup (nothing needed)
 
 
+#  Initialize App
 
-# ──────────────────────────── App ──────────────────────────────────────
-
-# VULNERABILITY: No authentication middleware
-# VULNERABILITY: No rate-limiting middleware
 app = FastAPI(
     title="SentinalBank Fraud Detection API",
     description="Real-time fraud scoring for financial transactions.",
@@ -49,8 +39,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-
-# ──────────────────────────── Endpoints ────────────────────────────────
+#  Health check endpoint
 
 @app.get("/health")
 async def health(request: Request):
@@ -60,14 +49,12 @@ async def health(request: Request):
         "model_loaded": hasattr(request.app.state, "model") and request.app.state.model is not None,
     }
 
+# Prediction endpoint
 
 @app.post("/predict", response_model=PredictionResponse)
 async def predict(transaction: TransactionInput, request: Request):
     """
     Score a single transaction for fraud.
-
-    # VULNERABILITY: Returns raw (unrounded) float probability,
-    # enabling model extraction / membership-inference attacks.
     """
     model = request.app.state.model
 
@@ -98,7 +85,6 @@ async def predict(transaction: TransactionInput, request: Request):
     X = pd.DataFrame([row], columns=feature_names)
     proba = model.predict_proba(X)[0]
 
-    # VULNERABILITY: Raw float probability returned without rounding
     fraud_probability = float(proba[1])
     fraud_label = "FRAUD" if fraud_probability >= 0.5 else "LEGIT"
 
@@ -109,16 +95,8 @@ async def predict(transaction: TransactionInput, request: Request):
     )
 
 
-@app.get("/model-info")
-async def model_info(request: Request):
-    """Return model metadata loaded from model_metadata.json."""
-    return request.app.state.model_metadata
-
-
-# ──────────────────────────── Entrypoint ───────────────────────────────
+#  Entrypoint
 
 if __name__ == "__main__":
     import uvicorn
-
-    # VULNERABILITY: DEBUG mode enabled — exposes stack traces and reload watcher
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=False, log_level="info")
