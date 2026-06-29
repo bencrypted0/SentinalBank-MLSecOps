@@ -8,6 +8,9 @@ metadata:
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
     # Tells Nginx the backend app speaks plain HTTP
     nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    # Rate Limiting: max 5 requests per second per IP and 10 concurrent connections
+    nginx.ingress.kubernetes.io/limit-rps: "5"
+    nginx.ingress.kubernetes.io/limit-connections: "10"
 spec:
   # Instructs Kubernetes to use the Nginx Ingress Controller
   ingressClassName: nginx
@@ -23,4 +26,3 @@ spec:
             name: fraud-api
             port:
               number: 8000
-
