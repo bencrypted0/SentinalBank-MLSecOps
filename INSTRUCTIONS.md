@@ -1,6 +1,25 @@
 # SentinalBank — Manual Setup Instructions
 
+← Back to **[README.md](README.md)**
+
 This document walks through setting up the entire SentinalBank infrastructure **from scratch, manually**, with no automation beyond Terraform provisioning the raw infrastructure. Use this if you're doing a fresh deployment, debugging a broken environment, or just want to understand exactly what's happening at each layer before any of it gets scripted.
+
+---
+
+## Table of Contents
+
+1. [Prerequisites](#0-prerequisites)
+2. [Clone the Repository](#1-clone-the-repository)
+3. [Set Up AWS Credentials](#2-set-up-aws-credentials-for-terraform)
+4. [Provision Infrastructure with Terraform](#3-provision-infrastructure-with-terraform)
+5. [Set Up the Prod Server](#4-set-up-the-prod-server-minio--mlflow--minikube)
+6. [Set Up the Jenkins Server](#5-set-up-the-jenkins-server)
+7. [Set Up the Jenkins Agent](#6-set-up-the-jenkins-agent)
+8. [Add Required Jenkins Credentials](#7-add-required-jenkins-credentials)
+9. [Deploy to minikube](#8-deploy-the-fastapi-inference-api-to-minikube)
+10. [Run the Pipeline End-to-End](#9-run-the-pipeline-end-to-end)
+11. [Teardown](#10-teardown)
+12. [Troubleshooting](#troubleshooting-notes)
 
 **Architecture recap:**
 - **Jenkins Server** (EC2) — runs Jenkins via Docker Compose
@@ -356,6 +375,18 @@ http://<JENKINS_SERVER_PUBLIC_IP>:8080
 - Install suggested plugins (this includes the SSH-based agent plugins you'll need)
 - Create your first admin user
 
+### 5.7.1 Install Required Jenkins Plugins
+
+After the setup wizard, go to **Manage Jenkins → Plugins → Available plugins** and install the following (if not already installed):
+
+| Plugin | Why It's Needed |
+|---|---|
+| **Docker Pipeline** (`docker-workflow`) | Enables the `docker` agent type in declarative pipelines — without this, stages using `agent { docker { ... } }` will fail with `Invalid agent type "docker"` |
+| **SSH Agent** | Provides `sshagent()` for the Deploy stage to SSH into the prod server |
+| **Pipeline: Stage View** | Visual stage-by-stage pipeline view (optional but recommended) |
+
+> **Critical**: The `Docker Pipeline` plugin is required. Without it, the Jenkinsfile will not parse — the `docker` agent type is not built-in to Jenkins core.
+
 ### 5.8 Generate an SSH Key Pair for Jenkins → Agent Communication
 
 Since the agent connects via **SSH** (master initiates the connection out to the agent), Jenkins needs its own key pair separate from your `sentinalbank-deployer-key.pem`.
@@ -477,7 +508,11 @@ Generate the cosign keypair (on your local machine or the Jenkins server, wherev
 docker run --rm -v ${PWD}:/work -w /work gcr.io/projectsigstore/cosign:latest generate-key-pair
 ```
 
-This produces `cosign.key` and `cosign.pub` — upload `cosign.key` as the `cosign-key` secret file and `cosign.pub` as `cosign-pub`.
+> macOS/Linux users: replace `${PWD}` with `$(pwd)`.
+
+You'll be prompted for a password — remember it, you'll store it as the `cosign-password` credential. This produces two files:
+- `cosign.key` → upload as the `cosign-key` **secret file** credential
+- `cosign.pub` → upload as the `cosign-pub` **secret file** credential
 
 ---
 
