@@ -243,7 +243,8 @@ pipeline {
             }
         }
 
-        // Build Temporary Model — CI-only: train the model and save to workspace for scanning
+
+        // Build Temporary Model — train the model and save to workspace for scanning
         stage('Build Temporary Model for Scans') {
             agent {
                 docker {
@@ -268,7 +269,8 @@ pipeline {
             }
         }
 
-        // Model Scan — scans the model artifact
+
+        // Model Scan — scans the model artifact trained and saved earlier
         stage('Model Scan') {
             agent { label 'ec2-agent' }
             steps {
@@ -293,6 +295,7 @@ pipeline {
                 }
             }
         }
+
 
         // Sign Image - Cosign
         stage('Sign Image') {
@@ -329,6 +332,7 @@ pipeline {
             }
         }
 
+
         // Verify Signature - Cosign
         stage('Verify Signature') {
             agent { label 'ec2-agent' }
@@ -357,6 +361,7 @@ pipeline {
                 failure { echo 'Signature verification failed — image may be tampered or unsigned. Build failed.' }
             }
         }
+
 
         // Deploy Stage
         stage('Deploy') {
