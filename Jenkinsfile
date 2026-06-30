@@ -364,6 +364,7 @@ pipeline {
 
 
         // Deploy Stage
+        // (Deploy the new image, checks the deployment status, if the deployment fails, reverts to old deployment)
         stage('Deploy') {
             agent { label 'ec2-agent' }
             when { branch 'main' }
@@ -375,8 +376,7 @@ pipeline {
                     sh '''
                         ssh -o StrictHostKeyChecking=no ubuntu@${PROD_SERVER_IP} \
                         "kubectl set image deployment/app app=${APP_IMAGE_DIGEST} && \
-                        kubectl rollout status deployment/app --timeout=120s || \
-                        (kubectl rollout undo deployment/app && exit 1)"
+                        kubectl rollout status deployment/app --timeout=120s || (kubectl rollout undo deployment/app && exit 1)"
                     '''
                 }
             }

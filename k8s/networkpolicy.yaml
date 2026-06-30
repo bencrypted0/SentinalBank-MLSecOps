@@ -2,21 +2,20 @@
 
 # Default: deny ALL ingress in the namespace.
 # Then each policy below opens only the specific ports that each component actually needs.
-# Egress is left open (pods can still reach DNS, the internet, etc.).
 
-# 1. Default deny ALL ingress across the namespace
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: default-deny-ingress
 spec:
-  podSelector: {}          # matches every pod in the namespace
+  podSelector: {}          # {} for every pod
   policyTypes: [Ingress]   # blocks all incoming traffic by default
-  # No ingress rules → everything is denied
+  # No ingress rules, everything is denied
 
 ---
-# 2. App (fraud-api) — accept HTTP traffic (port 8000) from anywhere.
-#    This is the internal service exposed via Ingress.
+
+# Exceptions
+
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -28,4 +27,3 @@ spec:
   ingress:
   - ports:
     - {protocol: TCP, port: 8000}
-    # No 'from' selector → allows traffic from any source (external + internal)
