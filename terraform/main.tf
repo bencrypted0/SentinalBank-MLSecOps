@@ -254,31 +254,43 @@ resource "aws_security_group" "prod_server" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # MLflow Tracking Server UI/API (port 5000 in docker-compose.yml)
+  # HTTP traffic routed to Kubernetes Ingress Controller via iptables DNAT
   ingress {
-    description = "MLflow Tracking Server"
+    description = "HTTP via Ingress"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # MLflow Tracking Server UI/API (port 5000 in docker-compose.yml)
+  # Restricted to VPC-internal traffic only — no public access
+  ingress {
+    description = "MLflow Tracking Server (VPC-internal)"
     from_port   = 5000
     to_port     = 5000
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = ["10.0.0.0/16"]
   }
 
   # MinIO API Server (port 9000 in docker-compose.yml)
+  # Restricted to VPC-internal traffic only — no public access
   ingress {
-    description = "MinIO S3 API"
+    description = "MinIO S3 API (VPC-internal)"
     from_port   = 9000
     to_port     = 9000
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = ["10.0.0.0/16"]
   }
 
   # MinIO Console Web UI (port 9001 in docker-compose.yml)
+  # Restricted to VPC-internal traffic only — no public access
   ingress {
-    description = "MinIO Web Console"
+    description = "MinIO Web Console (VPC-internal)"
     from_port   = 9001
     to_port     = 9001
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = ["10.0.0.0/16"]
   }
 
   # Outbound for container engine image fetch & dependency resolution

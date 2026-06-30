@@ -32,11 +32,11 @@ spec:
         securityContext:
           runAsNonRoot: true
           runAsUser: 1001
-          allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: false 
+          allowPrivilegeEscalation: false # setuid and setgid binaries disabled so can't move from current privilege.
+          readOnlyRootFilesystem: false # Can't do that, we have to write temp files
           capabilities:
-            drop: ["ALL"]
-        resources:
+            drop: ["ALL"] # no more linux capabilities like raw sockets, mount, etc.
+        resources:  # no more resource abuse
           requests:
             memory: "256Mi"
             cpu: "100m"
