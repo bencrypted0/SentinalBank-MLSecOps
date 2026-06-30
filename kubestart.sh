@@ -1,11 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# ==================================================================
-# SentinalBank — Kubernetes Bootup and pod setup script
-# Run from the project root (where the k8s/ directory lives).
-# ==================================================================
-
 echo "========================================"
 echo "  SentinalBank — Kubernetes Setup"
 echo "========================================"
