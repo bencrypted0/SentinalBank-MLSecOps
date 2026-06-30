@@ -376,8 +376,7 @@ pipeline {
                     sh '''
                         ssh -o StrictHostKeyChecking=no ubuntu@${PROD_SERVER_IP} \
                         "kubectl set image deployment/app app=${APP_IMAGE_DIGEST} && \
-                        kubectl rollout status deployment/app --timeout=120s || \   
-                        (kubectl rollout undo deployment/app && exit 1)"
+                        kubectl rollout status deployment/app --timeout=120s || (kubectl rollout undo deployment/app && exit 1)"
                     '''
                 }
             }
